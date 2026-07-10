@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Editar gasto · TBB Finanzas{% endblock %}
+{% block heading %}Editar movimiento{% endblock %}
+{% block content %}
+<section class="panel page-form">
+  {% include "partials/errors.html" %}
+  <form method="post" class="form-grid form-grid-wide">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Monto CLP<input name="amount" inputmode="numeric" required value="{{ request.form.get('amount', expense.amount) }}"></label>
+    {% with prefix='occurred_at', date_value=request.form.get('occurred_at_date', form_date(expense.occurred_at)), time_value=request.form.get('occurred_at_time', form_time(expense.occurred_at)) %}
+      {% include "partials/date_time_fields.html" %}
+    {% endwith %}
+    <label>Tipo<select name="expense_type">{% for key in expense_types %}<option value="{{ key }}" {{ 'selected' if request.form.get('expense_type', expense.expense_type) == key }}>{{ type_labels[key] }}</option>{% endfor %}</select></label>
+    <label>Categoría<select name="category">{% for category in categories %}<option value="{{ category }}" {{ 'selected' if request.form.get('category', expense.category) == category }}>{{ category }}</option>{% endfor %}</select></label>
+    <label>Medio de pago<select name="payment_method">{% for key in payment_methods %}<option value="{{ key }}" {{ 'selected' if request.form.get('payment_method', expense.payment_method) == key }}>{{ payment_labels[key] }}</option>{% endfor %}</select></label>
+    <label>Proveedor<input name="supplier" value="{{ request.form.get('supplier', expense.supplier or '') }}"></label>
+    <label>Descripción<input name="description" required value="{{ request.form.get('description', expense.description) }}"></label>
+    <label class="span-full">Notas<textarea name="notes">{{ request.form.get('notes', expense.notes or '') }}</textarea></label>
+    <div class="form-actions span-full">
+      <a class="button button-muted" href="{{ url_for('expenses.detail', expense_id=expense.id) }}">Cancelar</a>
+      <button class="button button-red" type="submit">Guardar cambios</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

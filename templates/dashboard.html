@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · TBB Finanzas{% endblock %}
+{% block heading %}Cockpit financiero{% endblock %}
+
+{% block content %}
+<section class="toolbar cockpit-toolbar">
+  <form class="filter-bar" method="get">
+    <a class="chip {{ 'active' if period == 'today' }}" href="{{ url_for('dashboard.index', period='today') }}">Hoy</a>
+    <a class="chip {{ 'active' if period == 'week' }}" href="{{ url_for('dashboard.index', period='week') }}">Esta semana</a>
+    <a class="chip {{ 'active' if period == 'month' }}" href="{{ url_for('dashboard.index', period='month') }}">Este mes</a>
+    <a class="chip {{ 'active' if period == 'prev_month' }}" href="{{ url_for('dashboard.index', period='prev_month') }}">Mes anterior</a>
+    <input type="hidden" name="period" value="custom">
+    <input type="date" name="start" value="{{ start_date.isoformat() }}">
+    <input type="date" name="end" value="{{ end_date.isoformat() }}">
+    <button class="button" type="submit">Filtrar</button>
+  </form>
+  <div class="quick-actions">
+    <a class="button button-green" href="{{ url_for('sales.index') }}">Agregar venta</a>
+    <a class="button button-red" href="{{ url_for('expenses.index') }}">Agregar gasto</a>
+    <a class="button button-blue" href="{{ url_for('sessions.index') }}">Jornada</a>
+  </div>
+</section>
+
+<section class="kpi-grid kpi-primary">
+  <article class="kpi kpi-green"><span>Ventas</span><strong>{{ metrics.total_sales|clp }}</strong></article>
+  <article class="kpi kpi-red"><span>Gastos operacionales</span><strong>{{ metrics.operational_expenses|clp }}</strong></article>
+  <article class="kpi kpi-blue"><span>Ganancia operativa</span><strong>{{ metrics.operating_profit|clp }}</strong></article>
+  <article class="kpi"><span>Margen operacional</span><strong>{{ metrics.operating_margin }}%</strong></article>
+</section>
+
+<section class="kpi-grid kpi-secondary">
+  <article class="kpi"><span>Ticket promedio</span><strong>{{ metrics.average_ticket|clp }}</strong></article>
+  <article class="kpi"><span>Cantidad de ventas</span><strong>{{ metrics.sales_count }}</strong></article>
+  <article class="kpi"><span>Horas trabajadas</span><strong>{{ metrics.worked_hours }}</strong></article>
+  <article class="kpi kpi-blue"><span>Caja de jornada</span><strong>{{ metrics.cash_balance|clp }}</strong></article>
+  <article class="kpi kpi-amber"><span>Inversión acumulada</span><strong>{{ metrics.investments|clp }}</strong><small>Flujo total: {{ metrics.total_flow|clp }}</small></article>
+</section>
+
+<section class="grid-2">
+  <article class="panel">
+    <div class="panel-head">
+      <h2>Ventas versus gastos operacionales</h2>
+    </div>
+    <div class="chart-box">
+      <canvas id="dailyChart" data-chart='{{ daily_chart|tojson }}'></canvas>
+      <p class="chart-empty">Aún no hay movimientos en este periodo.</p>
+    </div>
+  </article>
+  <article class="panel">
+    <div class="panel-head">
+      <h2>Gastos operacionales por categoría</h2>
+    </div>
+    <div class="chart-box">
+      <canvas id="categoryChart" data-chart='{{ category_chart|tojson }}'></canvas>
+      <p class="chart-empty">Aún no hay movimientos en este periodo.</p>
+    </div>
+  </article>
+</section>
+
+<section class="grid-2">
+  <article class="panel">
+    <div class="panel-head">
+      <h2>Inversión del proyecto</h2>
+    </div>
+    {% if investment_chart %}
+      {% set max_investment = investment_chart|map(attribute='amount')|max %}
+      <div class="bar-list">
+        {% for row in investment_chart %}
+          <div class="bar-row">
+            <span>{{ row.category }}</span>
+            <strong>{{ row.amount|clp }}</strong>
+            <div><i style="width: {{ (row.amount / max_investment * 100)|round(1) if max_investment else 0 }}%"></i></div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty">Aún no hay inversión registrada en este periodo.</p>
+    {% endif %}
+  </article>
+
+  <article class="panel">
+    <div class="panel-head">
+      <h2>Últimos movimientos</h2>
+      <a href="{{ url_for('history.index') }}">Ver todo</a>
+    </div>
+    <div class="movement-list">
+      {% for item in latest_movements %}
+        <div class="movement-row {{ item.tone }}">
+          <span>{{ item.occurred_at|dt }}</span>
+          <strong>{{ item.description }}</strong>
+          <em>{{ item.amount|clp }}</em>
+        </div>
+      {% else %}
+        <p class="empty">Sin movimientos para mostrar.</p>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Resumen mensual</h2>
+    <a href="{{ url_for('monthly_summary_csv', year=start_date.year) }}">Exportar CSV</a>
+  </div>
+  <div class="table-wrap responsive-table">
+    <table>
+      <thead>
+        <tr>
+          <th>Mes</th><th>Días</th><th class="amount-cell">Ingresos</th><th class="amount-cell">Operativa</th><th class="amount-cell">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in monthly_rows %}
+          <tr>
+            <td data-label="Mes">{{ row.month }}</td>
+            <td data-label="Días">{{ row.worked_days }}</td>
+            <td data-label="Ingresos" class="amount-cell">{{ row.income|clp }}</td>
+            <td data-label="Operativa" class="amount-cell">{{ row.operating_profit|clp }}</td>
+            <td data-label="Total" class="amount-cell">{{ row.total_result|clp }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5">Sin datos mensuales.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

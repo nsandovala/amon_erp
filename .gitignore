@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+instance/*.db
+instance/.secret_key
+backups/*.db
+.DS_Store

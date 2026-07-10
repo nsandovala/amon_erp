@@ -1,0 +1,39 @@
+{% set errors_map = field_errors if field_errors is defined else {} %}
+<div class="date-time-fields {{ wrapper_class|default('') }}">
+  <label>
+    {{ date_label|default('Fecha') }}
+    <input
+      name="{{ prefix }}_date"
+      type="text"
+      inputmode="numeric"
+      maxlength="10"
+      pattern="\d{2}-\d{2}-\d{4}"
+      autocomplete="off"
+      placeholder="DD-MM-YYYY"
+      required
+      value="{{ date_value }}"
+      aria-invalid="{{ 'true' if errors_map.get(prefix ~ '_date') else 'false' }}"
+    >
+    {% if errors_map.get(prefix ~ '_date') %}
+      <small class="field-error">{{ errors_map.get(prefix ~ '_date') }}</small>
+    {% endif %}
+  </label>
+  <label>
+    {{ time_label|default('Hora') }}
+    <input
+      name="{{ prefix }}_time"
+      type="text"
+      inputmode="numeric"
+      maxlength="5"
+      pattern="([01]\d|2[0-3]):[0-5]\d"
+      autocomplete="off"
+      placeholder="HH:mm"
+      required
+      value="{{ time_value }}"
+      aria-invalid="{{ 'true' if errors_map.get(prefix ~ '_time') else 'false' }}"
+    >
+    {% if errors_map.get(prefix ~ '_time') %}
+      <small class="field-error">{{ errors_map.get(prefix ~ '_time') }}</small>
+    {% endif %}
+  </label>
+</div>

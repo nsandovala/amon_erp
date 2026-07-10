@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Gastos · TBB Finanzas{% endblock %}
+{% block heading %}Gastos e inversiones{% endblock %}
+
+{% block content %}
+<section class="panel page-form">
+  <div class="panel-head">
+    <h2>Agregar gasto o inversión</h2>
+  </div>
+  {% include "partials/errors.html" %}
+  <form method="post" class="form-grid form-grid-wide">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Monto CLP<input name="amount" inputmode="numeric" required value="{{ form.get('amount', '') }}"></label>
+    {% with prefix='occurred_at', date_value=form.get('occurred_at_date', ''), time_value=form.get('occurred_at_time', '') %}
+      {% include "partials/date_time_fields.html" %}
+    {% endwith %}
+    <label>Tipo
+      <select name="expense_type">
+        {% for key in expense_types %}<option value="{{ key }}" {{ 'selected' if form.get('expense_type', 'operational') == key }}>{{ type_labels[key] }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Categoría
+      <select name="category">
+        {% for category in categories %}<option value="{{ category }}" {{ 'selected' if form.get('category', 'Insumos') == category }}>{{ category }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Medio de pago
+      <select name="payment_method">
+        {% for key in payment_methods %}<option value="{{ key }}" {{ 'selected' if form.get('payment_method', 'cash') == key }}>{{ payment_labels[key] }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Proveedor<input name="supplier" value="{{ form.get('supplier', '') }}"></label>
+    <label>Descripción<input name="description" required value="{{ form.get('description', '') }}" placeholder="Ej: compra de insumos"></label>
+    <label class="span-full">Notas<textarea name="notes">{{ form.get('notes', '') }}</textarea></label>
+    <div class="form-actions span-full">
+      <button class="button button-red" type="submit">Guardar gasto</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Resumen y filtros</h2></div>
+  <div class="summary-pair">
+    <p><span>Gastos operacionales</span><strong class="amount-red">{{ total_operational|clp }}</strong></p>
+    <p><span>Inversiones</span><strong class="amount-amber">{{ total_investments|clp }}</strong></p>
+  </div>
+  <form class="filter-grid" method="get">
+    <input type="date" name="start" value="{{ request.args.get('start', '') }}">
+    <input type="date" name="end" value="{{ request.args.get('end', '') }}">
+    <select name="category">
+      <option value="">Todas las categorías</option>
+      {% for category in categories %}<option value="{{ category }}" {{ 'selected' if request.args.get('category') == category }}>{{ category }}</option>{% endfor %}
+    </select>
+    <select name="expense_type">
+      <option value="">Todos los tipos</option>
+      {% for key in expense_types %}<option value="{{ key }}" {{ 'selected' if request.args.get('expense_type') == key }}>{{ type_labels[key] }}</option>{% endfor %}
+    </select>
+    <select name="status">
+      <option value="active" {{ 'selected' if request.args.get('status', 'active') == 'active' }}>Activos</option>
+      <option value="archived" {{ 'selected' if request.args.get('status') == 'archived' }}>Archivados</option>
+    </select>
+    <button class="button" type="submit">Filtrar</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Historial de gastos e inversiones</h2>
+  </div>
+  <div class="table-wrap responsive-table">
+    <table>
+      <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Tipo</th><th class="amount-cell">Monto</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <tbody>
+        {% for expense in expenses %}
+          <tr>
+            <td data-label="Fecha">{{ expense.occurred_at|dt }}</td>
+            <td data-label="Descripción"><strong>{{ expense.description }}</strong></td>
+            <td data-label="Categoría">{{ expense.category }}</td>
+            <td data-label="Tipo">{{ type_labels[expense.expense_type] }}</td>
+            <td data-label="Monto" class="{{ 'amount-amber' if expense.expense_type == 'investment' else 'amount-red' }} amount-cell">{{ expense.amount|clp }}</td>
+            <td data-label="Estado"><span class="status {{ expense.status }}">{{ status_labels[expense.status] }}</span></td>
+            <td data-label="Acciones" class="actions">
+              <a class="button button-compact" href="{{ url_for('expenses.edit', expense_id=expense.id) }}">Editar</a>
+              <details class="action-menu">
+                <summary aria-label="Más acciones">⋯</summary>
+                <div>
+                  <a href="{{ url_for('expenses.detail', expense_id=expense.id) }}">Ver detalle</a>
+                  {% if expense.status == 'active' %}
+                    <form method="post" action="{{ url_for('expenses.archive', expense_id=expense.id) }}" data-confirm="¿Archivar este movimiento?">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                      <button type="submit">Archivar</button>
+                    </form>
+                  {% endif %}
+                  <form method="post" action="{{ url_for('expenses.delete', expense_id=expense.id) }}" data-delete-form data-delete-kind="{{ type_labels[expense.expense_type] }}" data-delete-description="{{ expense.description }}" data-delete-date="{{ expense.occurred_at|dt }}" data-delete-amount="{{ expense.amount|clp }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button class="danger-text" type="submit">Eliminar</button>
+                  </form>
+                </div>
+              </details>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7">No hay gastos para estos filtros.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

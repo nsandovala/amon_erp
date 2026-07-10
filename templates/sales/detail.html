@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Detalle venta · TBB Finanzas{% endblock %}
+{% block heading %}Detalle venta{% endblock %}
+{% block content %}
+<section class="panel narrow detail-list">
+  <p><span>Fecha</span><strong>{{ sale.occurred_at|dt }}</strong></p>
+  <p><span>Monto</span><strong class="amount-green">{{ sale.amount|clp }}</strong></p>
+  <p><span>Medio de pago</span><strong>{{ payment_labels[sale.payment_method] }}</strong></p>
+  <p><span>Canal</span><strong>{{ channel_labels[sale.channel] }}</strong></p>
+  <p><span>Estado</span><strong>{{ status_labels[sale.status] }}</strong></p>
+  <p><span>Descripción</span><strong>{{ sale.description or '-' }}</strong></p>
+  <p><span>Notas</span><strong>{{ sale.notes or '-' }}</strong></p>
+  <div class="quick-actions">
+    <a class="button" href="{{ url_for('sales.edit', sale_id=sale.id) }}">Editar</a>
+    <a class="button button-muted" href="{{ url_for('sales.index') }}">Volver</a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Historial · TBB Finanzas{% endblock %}
+{% block heading %}Historial financiero{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <form class="filter-grid" method="get">
+    <input name="q" placeholder="Buscar texto" value="{{ request.args.get('q', '') }}">
+    <select name="type">
+      <option value="all" {{ 'selected' if request.args.get('type', 'all') == 'all' }}>Todos</option>
+      <option value="sale" {{ 'selected' if request.args.get('type') == 'sale' }}>Ventas</option>
+      <option value="expense" {{ 'selected' if request.args.get('type') == 'expense' }}>Gastos</option>
+      <option value="investment" {{ 'selected' if request.args.get('type') == 'investment' }}>Inversiones</option>
+    </select>
+    <select name="payment_method">
+      <option value="">Todos los pagos</option>
+      {% for key in payment_methods %}<option value="{{ key }}" {{ 'selected' if request.args.get('payment_method') == key }}>{{ payment_labels[key] }}</option>{% endfor %}
+    </select>
+    <select name="category">
+      <option value="">Todas las categorías</option>
+      {% for category in categories %}<option value="{{ category }}" {{ 'selected' if request.args.get('category') == category }}>{{ category }}</option>{% endfor %}
+    </select>
+    <select name="status">
+      <option value="active" {{ 'selected' if request.args.get('status', 'active') == 'active' }}>Activos</option>
+      <option value="archived" {{ 'selected' if request.args.get('status') == 'archived' }}>Archivados</option>
+    </select>
+    <button class="button" type="submit">Filtrar</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="table-wrap responsive-table">
+    <table>
+      <thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Categoría</th><th>Medio de pago</th><th class="amount-cell">Monto</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <tbody>
+        {% for item in movements %}
+          <tr class="row-{{ item.kind }}">
+            <td data-label="Fecha">{{ item.occurred_at|dt }}</td>
+            <td data-label="Tipo">{{ item.label }}</td>
+            <td data-label="Descripción"><strong>{{ item.description }}</strong></td>
+            <td data-label="Categoría">{{ item.category_label or item.category }}</td>
+            <td data-label="Medio de pago">{{ payment_labels[item.payment_method] }}</td>
+            <td data-label="Monto" class="{{ 'amount-green' if item.kind == 'sale' else 'amount-amber' if item.kind == 'investment' else 'amount-red' }} amount-cell">{{ item.amount|clp }}</td>
+            <td data-label="Estado"><span class="status {{ item.status }}">{{ status_labels[item.status] }}</span></td>
+            <td data-label="Acciones" class="actions">
+              {% if item.kind == 'sale' %}
+                <a class="button button-compact" href="{{ url_for('sales.edit', sale_id=item.id) }}">Editar</a>
+              {% else %}
+                <a class="button button-compact" href="{{ url_for('expenses.edit', expense_id=item.id) }}">Editar</a>
+              {% endif %}
+              <details class="action-menu">
+                <summary aria-label="Más acciones">⋯</summary>
+                <div>
+                  {% if item.kind == 'sale' %}
+                    <a href="{{ url_for('sales.detail', sale_id=item.id) }}">Ver detalle</a>
+                    {% if item.status == 'active' %}
+                      <form method="post" action="{{ url_for('sales.archive', sale_id=item.id) }}" data-confirm="¿Archivar este movimiento?">
+                    {% endif %}
+                  {% else %}
+                    <a href="{{ url_for('expenses.detail', expense_id=item.id) }}">Ver detalle</a>
+                    {% if item.status == 'active' %}
+                      <form method="post" action="{{ url_for('expenses.archive', expense_id=item.id) }}" data-confirm="¿Archivar este movimiento?">
+                    {% endif %}
+                  {% endif %}
+                  {% if item.status == 'active' %}
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                      <button type="submit">Archivar</button>
+                    </form>
+                  {% endif %}
+                  {% if item.kind == 'sale' %}
+                    <form method="post" action="{{ url_for('sales.delete', sale_id=item.id) }}" data-delete-form data-delete-kind="Venta" data-delete-description="{{ item.description }}" data-delete-date="{{ item.occurred_at|dt }}" data-delete-amount="{{ item.amount|clp }}">
+                  {% else %}
+                    <form method="post" action="{{ url_for('expenses.delete', expense_id=item.id) }}" data-delete-form data-delete-kind="{{ item.label }}" data-delete-description="{{ item.description }}" data-delete-date="{{ item.occurred_at|dt }}" data-delete-amount="{{ item.amount|clp }}">
+                  {% endif %}
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button class="danger-text" type="submit">Eliminar</button>
+                  </form>
+                </div>
+              </details>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="8">No hay movimientos para estos filtros.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

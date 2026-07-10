@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}TBB Finanzas{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="{{ url_for('dashboard.index') }}">
+          <span class="brand-mark">TBB</span>
+          <span>
+            <strong>Finanzas <svg class="paw-mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M6.8 16.8c0-3 2.3-5.3 5.2-5.3s5.2 2.3 5.2 5.3c0 1.5-1.1 2.7-2.6 2.2l-1.2-.4a4 4 0 0 0-2.8 0l-1.2.4c-1.5.5-2.6-.7-2.6-2.2Z"/></svg></strong>
+            <small>The Best Burger</small>
+          </span>
+        </a>
+        <nav class="nav">
+          <a class="{{ 'active' if request.endpoint and request.endpoint.startswith('dashboard.') }}" href="{{ url_for('dashboard.index') }}">Dashboard</a>
+          <a class="{{ 'active' if request.endpoint and request.endpoint.startswith('sales.') }}" href="{{ url_for('sales.index') }}">Ventas</a>
+          <a class="{{ 'active' if request.endpoint and request.endpoint.startswith('expenses.') }}" href="{{ url_for('expenses.index') }}">Gastos</a>
+          <a class="{{ 'active' if request.endpoint and request.endpoint.startswith('sessions.') }}" href="{{ url_for('sessions.index') }}">Jornadas</a>
+          <a class="{{ 'active' if request.endpoint and request.endpoint.startswith('history.') }}" href="{{ url_for('history.index') }}">Historial</a>
+          <a class="{{ 'active' if request.endpoint and request.endpoint.startswith('trash.') }}" href="{{ url_for('trash.index') }}">Papelera</a>
+        </nav>
+        <form action="{{ url_for('backup') }}" method="post" class="backup-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="button button-muted" type="submit">Crear respaldo</button>
+        </form>
+        <svg class="cat-watermark" viewBox="0 0 220 180" aria-hidden="true">
+          <path d="M52 144c6-42 17-82 44-100L86 18l31 17 27-17-8 28c25 20 36 57 42 98 3 20-12 36-32 36H84c-20 0-35-16-32-36Z" fill="currentColor"/>
+          <path d="M76 86c10 7 21 10 34 10s25-3 34-10" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+        </svg>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Control local</p>
+            <h1>{% block heading %}TBB Finanzas{% endblock %}</h1>
+          </div>
+          <div class="session-pill {{ 'is-open' if open_session else 'is-closed' }}">
+            {% if open_session %}
+              Jornada abierta · {{ open_session.business_date|date_cl }}
+            {% else %}
+              Jornada cerrada
+            {% endif %}
+          </div>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-stack">
+              {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+    <dialog class="delete-dialog" id="deleteDialog" aria-labelledby="deleteTitle">
+      <form method="dialog" class="delete-dialog-card">
+        <h2 id="deleteTitle">¿Eliminar este movimiento?</h2>
+        <p>Dejará de incluirse en todos los cálculos. Podrás recuperarlo desde la papelera.</p>
+        <dl>
+          <div><dt>Tipo</dt><dd data-delete-kind>-</dd></div>
+          <div><dt>Descripción</dt><dd data-delete-description>-</dd></div>
+          <div><dt>Fecha</dt><dd data-delete-date>-</dd></div>
+          <div><dt>Monto</dt><dd data-delete-amount>-</dd></div>
+        </dl>
+        <div class="dialog-actions">
+          <button class="button button-muted" value="cancel">Cancelar</button>
+          <button class="button button-danger" value="confirm">Eliminar</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

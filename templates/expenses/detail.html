@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Detalle gasto · TBB Finanzas{% endblock %}
+{% block heading %}Detalle movimiento{% endblock %}
+{% block content %}
+<section class="panel narrow detail-list">
+  <p><span>Fecha</span><strong>{{ expense.occurred_at|dt }}</strong></p>
+  <p><span>Monto</span><strong class="{{ 'amount-amber' if expense.expense_type == 'investment' else 'amount-red' }}">{{ expense.amount|clp }}</strong></p>
+  <p><span>Tipo</span><strong>{{ type_labels[expense.expense_type] }}</strong></p>
+  <p><span>Categoría</span><strong>{{ expense.category }}</strong></p>
+  <p><span>Medio de pago</span><strong>{{ payment_labels[expense.payment_method] }}</strong></p>
+  <p><span>Estado</span><strong>{{ status_labels[expense.status] }}</strong></p>
+  <p><span>Proveedor</span><strong>{{ expense.supplier or '-' }}</strong></p>
+  <p><span>Descripción</span><strong>{{ expense.description }}</strong></p>
+  <p><span>Notas</span><strong>{{ expense.notes or '-' }}</strong></p>
+  <div class="quick-actions"><a class="button" href="{{ url_for('expenses.edit', expense_id=expense.id) }}">Editar</a><a class="button button-muted" href="{{ url_for('expenses.index') }}">Volver</a></div>
+</section>
+{% endblock %}
