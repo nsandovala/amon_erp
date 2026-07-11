@@ -7,7 +7,15 @@ from pathlib import Path
 from flask import Flask, Response, abort, flash, redirect, render_template, request, session, url_for
 
 from config import Config
-from models import create_tables, db_session, drop_tables, ensure_soft_delete_columns, init_engine, now_santiago
+from models import (
+    create_tables,
+    db_session,
+    drop_tables,
+    ensure_soft_delete_columns,
+    ensure_work_session_cash_columns,
+    init_engine,
+    now_santiago,
+)
 from models.expense import EXPENSE_CATEGORIES, Expense
 from models.sale import Sale
 from models.work_session import WorkSession
@@ -33,6 +41,7 @@ def create_app(test_config=None):
     init_engine(app.config["SQLALCHEMY_DATABASE_URI"])
     create_tables()
     ensure_soft_delete_columns(app.config["SQLALCHEMY_DATABASE_URI"], app.config["BACKUP_DIR"])
+    ensure_work_session_cash_columns(app.config["SQLALCHEMY_DATABASE_URI"], app.config["BACKUP_DIR"])
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(sales_bp)
@@ -68,6 +77,7 @@ def create_app(test_config=None):
             "format_time": format_time,
             "form_date": form_date,
             "form_time": form_time,
+            "format_duration": format_duration,
         }
 
     @app.template_filter("clp")
@@ -174,6 +184,12 @@ def form_time(value):
     return value.strftime("%H:%M") if value else ""
 
 
+def format_duration(minutes):
+    total = max(int(minutes or 0), 0)
+    hours, remaining_minutes = divmod(total, 60)
+    return f"{hours} h {remaining_minutes:02d} min"
+
+
 def seed_demo_data():
     if db_session.query(Sale).first() or db_session.query(Expense).first() or db_session.query(WorkSession).first():
         return
@@ -188,6 +204,7 @@ def seed_demo_data():
         closed_at=closed,
         opening_cash=50000,
         closing_cash=187500,
+        closing_cash_counted=187500,
         notes="Jornada de demostración.",
         status="closed",
     )

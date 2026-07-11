@@ -135,10 +135,10 @@ def restore(expense_id):
 
 def _expense_from_form(form):
     expense = Expense()
-    open_session = active_work_session()
-    if open_session:
-        expense.work_session_id = open_session.id
     _apply_expense_form(expense, form)
+    open_session = active_work_session()
+    if open_session and expense.expense_type == "operational":
+        expense.work_session_id = open_session.id
     return expense
 
 

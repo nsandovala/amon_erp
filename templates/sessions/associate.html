@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Asociar movimientos · TBB Finanzas{% endblock %}
+{% block heading %}Asociar movimientos históricos{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h2>Vista previa de jornada {{ work_session.business_date|date_cl }}</h2>
+      <p class="muted">{{ work_session.opened_at|dt }} a {{ work_session.closed_at|dt }}</p>
+    </div>
+  </div>
+  <div class="summary-pair">
+    <p><span>Ventas elegibles</span><strong>{{ preview.sales|length }} · {{ preview.sales_total|clp }}</strong></p>
+    <p><span>Gastos operacionales elegibles</span><strong>{{ preview.expenses|length }} · {{ preview.expenses_total|clp }}</strong></p>
+  </div>
+  <p class="muted">Solo se muestran movimientos activos, no eliminados, sin jornada y dentro del rango de apertura y cierre. Las inversiones nunca se asocian.</p>
+</section>
+
+<section class="panel">
+  <div class="table-wrap responsive-table">
+    <table>
+      <thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Pago</th><th class="amount-cell">Monto</th></tr></thead>
+      <tbody>
+        {% for sale in preview.sales %}
+          <tr><td data-label="Fecha">{{ sale.occurred_at|dt }}</td><td data-label="Tipo">Venta</td><td data-label="Descripción">{{ sale.description or 'Venta' }}</td><td data-label="Pago">{{ payment_labels[sale.payment_method] }}</td><td data-label="Monto" class="amount-green amount-cell">{{ sale.amount|clp }}</td></tr>
+        {% endfor %}
+        {% for expense in preview.expenses %}
+          <tr><td data-label="Fecha">{{ expense.occurred_at|dt }}</td><td data-label="Tipo">Gasto operacional</td><td data-label="Descripción">{{ expense.description }}</td><td data-label="Pago">{{ payment_labels[expense.payment_method] }}</td><td data-label="Monto" class="amount-red amount-cell">{{ expense.amount|clp }}</td></tr>
+        {% endfor %}
+        {% if not preview.sales and not preview.expenses %}<tr><td colspan="5">No hay movimientos elegibles para esta jornada.</td></tr>{% endif %}
+      </tbody>
+    </table>
+  </div>
+  <form method="post" class="form-actions" data-confirm="¿Confirmar la asociación? Solo se actualizarán los movimientos mostrados en esta vista previa.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <a class="button button-muted" href="{{ url_for('sessions.index') }}">Cancelar</a>
+    <button class="button button-purple" type="submit" {% if not preview.sales and not preview.expenses %}disabled{% endif %}>Confirmar asociación</button>
+  </form>
+</section>
+{% endblock %}

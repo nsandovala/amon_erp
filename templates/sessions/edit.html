@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Editar jornada · TBB Finanzas{% endblock %}
+{% block heading %}Editar jornada{% endblock %}
+
+{% block content %}
+<section class="panel narrow">
+  <div class="panel-head">
+    <h2>{{ work_session.business_date|date_cl }}</h2>
+    <span class="status {{ work_session.status }}">{{ 'Abierta' if work_session.status == 'open' else 'Archivada' if work_session.status == 'archived' else 'Cerrada' }}</span>
+  </div>
+  {% include "partials/errors.html" %}
+  <form method="post" class="form-grid" {% if work_session.status != 'open' %}data-confirm="¿Guardar cambios en esta jornada cerrada? Los movimientos asociados no serán modificados."{% endif %}>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% with prefix='opened_at', date_value=request.form.get('opened_at_date', form_date(work_session.opened_at)), time_value=request.form.get('opened_at_time', form_time(work_session.opened_at)), date_label='Fecha de apertura', time_label='Hora de apertura' %}
+      {% include "partials/date_time_fields.html" %}
+    {% endwith %}
+    <label>
+      Efectivo inicial
+      <input name="opening_cash" inputmode="numeric" pattern="\d+" required value="{{ request.form.get('opening_cash', work_session.opening_cash) }}">
+    </label>
+    {% if work_session.status != 'open' %}
+      {% with prefix='closed_at', date_value=request.form.get('closed_at_date', form_date(work_session.closed_at)), time_value=request.form.get('closed_at_time', form_time(work_session.closed_at)), date_label='Fecha de cierre', time_label='Hora de cierre' %}
+        {% include "partials/date_time_fields.html" %}
+      {% endwith %}
+      <label>
+        Efectivo contado al cierre
+        <input name="closing_cash_counted" inputmode="numeric" pattern="\d+" required value="{{ request.form.get('closing_cash_counted', work_session.closing_cash_counted if work_session.closing_cash_counted is not none else work_session.closing_cash) }}">
+      </label>
+      <label class="span-full">Notas de cierre<textarea name="closing_notes">{{ request.form.get('closing_notes', work_session.closing_notes or '') }}</textarea></label>
+    {% endif %}
+    <label class="span-full">Notas de apertura<textarea name="notes">{{ request.form.get('notes', work_session.notes or '') }}</textarea></label>
+    <div class="form-actions span-full">
+      <a class="button button-muted" href="{{ url_for('sessions.index') }}">Cancelar</a>
+      <button class="button button-blue" type="submit">Guardar cambios</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

@@ -19,7 +19,10 @@ Aplicación local-first para controlar las finanzas del food truck The Best Burg
 - KPIs de ventas, gastos operacionales, ganancia operativa, margen, ticket promedio, horas trabajadas, caja de jornada e inversión acumulada.
 - Registro, edición, detalle, archivado y eliminación lógica de ventas.
 - Registro, edición, detalle, archivado y eliminación lógica de gastos e inversiones.
-- Apertura, cierre, archivado y eliminación lógica de jornadas.
+- Apertura, cierre, edición, archivado y eliminación lógica de jornadas.
+- Asociación automática de ventas y gastos operacionales a la jornada abierta.
+- Métricas de jornada por asociación persistente, cierre de caja y estados de cuadre.
+- Reconstrucción histórica con vista previa, confirmación y auditoría.
 - Papelera con restauración de ventas, gastos, inversiones y jornadas.
 - Historial financiero con búsqueda y filtros.
 - Exportación CSV mensual compatible con Excel en español.
@@ -34,6 +37,10 @@ Aplicación local-first para controlar las finanzas del food truck The Best Burg
 - `Archivar` conserva el registro histórico.
 - `Eliminar` no borra físicamente: marca `deleted_at`, excluye el registro de cálculos y lo mueve a Papelera.
 - SQLite impide más de una jornada abierta mediante un índice único parcial.
+- `business_date` se deriva de `opened_at`; no se solicita dos veces al usuario.
+- Las métricas de jornada se calculan desde `work_session_id`, nunca por coincidencia de fecha.
+- `closing_cash_counted` guarda el efectivo contado. `expected_cash` y `cash_difference` se calculan y no se persisten.
+- `closing_cash` se conserva temporalmente como columna legada para compatibilidad con instalaciones anteriores.
 - La clave de sesión se lee desde `TBB_SECRET_KEY`; si no existe, se genera una clave local ignorada por Git en `instance/.secret_key`.
 
 ## Instalación en macOS
@@ -102,6 +109,52 @@ pre_migration_soft_delete_YYYY-MM-DD_HH-MM-SS.db
 
 La migración preserva los datos existentes. No elimina registros ni recrea tablas.
 
+La migración F0 agrega de forma no destructiva a `work_sessions`:
+
+- `closing_cash_counted INTEGER NULL`
+- `closing_notes TEXT NULL`
+
+Antes de modificar el esquema crea automáticamente:
+
+```text
+pre_migration_f0_YYYY-MM-DD_HH-MM-SS.db
+```
+
+Los valores existentes de `closing_cash` se copian a `closing_cash_counted`. La columna legada no se elimina. La tabla `audit_logs` se crea mediante SQLAlchemy para registrar edición de jornadas y asociación histórica.
+
+Para aplicar la migración basta iniciar cualquier comando Flask; la fábrica de aplicación verifica el esquema de forma idempotente:
+
+```bash
+flask --app app init-db
+```
+
+Puede verificarse después con:
+
+```bash
+sqlite3 instance/tbb_finanzas.db "PRAGMA table_info(work_sessions);"
+```
+
+## Motor de jornadas F0
+
+Las fórmulas se encuentran centralizadas en `services/work_sessions.py` y usan pesos chilenos enteros:
+
+```text
+ganancia_operativa = ventas - gastos_operacionales
+efectivo_esperado = efectivo_inicial + ventas_efectivo + entradas_caja - gastos_efectivo - retiros_caja
+diferencia_caja = efectivo_contado_al_cierre - efectivo_esperado
+```
+
+`entradas_caja` y `retiros_caja` permanecen encapsulados en 0 hasta que existan esos movimientos. Transferencias, tarjetas e inversiones no modifican el efectivo esperado.
+
+Para corregir movimientos históricos:
+
+1. Abrir `Jornadas`.
+2. En una jornada cerrada, abrir el menú `⋯`.
+3. Seleccionar `Asociar movimientos`.
+4. Revisar la vista previa y confirmar.
+
+Solo se asocian ventas y gastos operacionales activos, no eliminados, sin jornada y cuyo `occurred_at` esté entre apertura y cierre. Nunca se reasigna un movimiento ya asociado.
+
 ## Respaldo y restauración
 
 El botón `Crear respaldo` copia `instance/tbb_finanzas.db` dentro de `backups/` con un nombre como:
@@ -133,6 +186,9 @@ Validaciones cubiertas:
 - Validación de fecha y hora.
 - Traducción visible de estados.
 - Dashboard mensual por defecto.
+- Asociación y métricas por jornada.
+- Cierre cuadrado, con sobrante y con faltante.
+- Edición auditada y reconstrucción histórica segura.
 
 ## Estructura
 

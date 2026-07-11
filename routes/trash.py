@@ -5,6 +5,7 @@ from models.expense import Expense
 from models.sale import Sale
 from models.work_session import WorkSession
 from routes import CHANNEL_LABELS, PAYMENT_LABELS, STATUS_LABELS, TYPE_LABELS
+from services.work_sessions import calculate_work_session_metrics
 
 
 trash_bp = Blueprint("trash", __name__, url_prefix="/papelera")
@@ -43,6 +44,7 @@ def index():
         })
 
     for work_session in db_session.query(WorkSession).filter(WorkSession.deleted_at.is_not(None)).all():
+        metrics = calculate_work_session_metrics(work_session)
         items.append({
             "kind": "session",
             "label": "Jornada",
@@ -51,7 +53,7 @@ def index():
             "deleted_at": work_session.deleted_at,
             "category": STATUS_LABELS[work_session.status],
             "payment_method": "-",
-            "amount": work_session.operating_profit,
+            "amount": metrics.operational_profit,
             "restore_url": "sessions.restore",
             "id": work_session.id,
         })

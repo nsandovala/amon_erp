@@ -5,17 +5,21 @@
 {% block content %}
 <section class="panel page-form">
   <div class="panel-head">
-    <h2>{{ 'Cerrar jornada' if open_session else 'Abrir jornada' }}</h2>
+    <h2>{{ 'Cerrar jornada' if current_session else 'Abrir jornada' }}</h2>
   </div>
   {% include "partials/errors.html" %}
-  {% if open_session %}
-    <form method="post" action="{{ url_for('sessions.close', session_id=open_session.id) }}" class="form-grid form-grid-wide">
+  {% if current_session %}
+    <form method="post" action="{{ url_for('sessions.close', session_id=current_session.id) }}" class="form-grid form-grid-wide">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      {% with prefix='closed_at', date_value=request.form.get('closed_at_date', form_date(current_dt)), time_value=request.form.get('closed_at_time', form_time(current_dt)), date_label='Fecha de cierre', time_label='Hora de cierre' %}
+      {% with prefix='closed_at', date_value=form.get('closed_at_date', form_date(current_dt)), time_value=form.get('closed_at_time', form_time(current_dt)), date_label='Fecha de cierre', time_label='Hora de cierre' %}
         {% include "partials/date_time_fields.html" %}
       {% endwith %}
-      <label>Efectivo final<input name="closing_cash" inputmode="numeric" required value="{{ request.form.get('closing_cash', '') }}"></label>
-      <label class="span-full">Notas de cierre<textarea name="notes">{{ request.form.get('notes', open_session.notes or '') }}</textarea></label>
+      <label>
+        Efectivo contado al cierre
+        <input name="closing_cash_counted" inputmode="numeric" pattern="\d+" required value="{{ form.get('closing_cash_counted', '') }}">
+        {% if field_errors.get('closing_cash_counted') %}<small class="field-error">{{ field_errors.get('closing_cash_counted') }}</small>{% endif %}
+      </label>
+      <label class="span-full">Notas de cierre<textarea name="closing_notes">{{ form.get('closing_notes', current_session.closing_notes or '') }}</textarea></label>
       <div class="form-actions span-full">
         <button class="button button-blue" type="submit">Cerrar jornada</button>
       </div>
@@ -23,17 +27,14 @@
   {% else %}
     <form method="post" class="form-grid form-grid-wide">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      {% set errors_map = field_errors if field_errors is defined else {} %}
-      <label>
-        Fecha de trabajo
-        <input name="business_date" type="text" inputmode="numeric" maxlength="10" pattern="\d{2}-\d{2}-\d{4}" autocomplete="off" placeholder="DD-MM-YYYY" value="{{ request.form.get('business_date', form_date(current_dt)) }}" required>
-        {% if errors_map.get('business_date') %}<small class="field-error">{{ errors_map.get('business_date') }}</small>{% endif %}
-      </label>
-      {% with prefix='opened_at', date_value=request.form.get('opened_at_date', form_date(current_dt)), time_value=request.form.get('opened_at_time', form_time(current_dt)), date_label='Fecha de apertura', time_label='Hora de apertura' %}
+      {% with prefix='opened_at', date_value=form.get('opened_at_date', form_date(current_dt)), time_value=form.get('opened_at_time', form_time(current_dt)), date_label='Fecha de apertura', time_label='Hora de apertura' %}
         {% include "partials/date_time_fields.html" %}
       {% endwith %}
-      <label>Efectivo inicial<input name="opening_cash" inputmode="numeric" value="{{ request.form.get('opening_cash', '0') }}"></label>
-      <label class="span-full">Notas<textarea name="notes">{{ request.form.get('notes', '') }}</textarea></label>
+      <label>
+        Efectivo inicial
+        <input name="opening_cash" inputmode="numeric" pattern="\d+" required value="{{ form.get('opening_cash', '0') }}">
+      </label>
+      <label class="span-full">Notas<textarea name="notes">{{ form.get('notes', '') }}</textarea></label>
       <div class="form-actions span-full">
         <button class="button button-blue" type="submit">Abrir jornada</button>
       </div>
@@ -43,65 +44,79 @@
 
 <section class="panel">
   <div class="panel-head"><h2>Resumen de jornada actual</h2></div>
-  {% if open_session %}
+  {% if current_session %}
     <div class="summary-grid">
-      <p><span>Hora de apertura</span><strong>{{ open_session.opened_at|dt }}</strong></p>
-      <p><span>Tiempo transcurrido</span><strong>{{ open_session.duration_hours }} h</strong></p>
-      <p><span>Ventas</span><strong class="amount-green">{{ open_session.active_sales_total|clp }}</strong></p>
-      <p><span>Gastos operacionales</span><strong class="amount-red">{{ open_session.active_operational_expenses_total|clp }}</strong></p>
-      <p><span>Caja de jornada</span><strong class="amount-blue">{{ open_session.cash_balance|clp }}</strong></p>
+      <p><span>Apertura</span><strong>{{ current_session.opened_at|dt }}</strong></p>
+      <p><span>Tiempo transcurrido</span><strong>{{ format_duration(current_metrics.duration_minutes) }}</strong></p>
+      <p><span>Ventas</span><strong class="amount-green">{{ current_metrics.total_sales|clp }}</strong></p>
+      <p><span>Ventas en efectivo</span><strong class="amount-green">{{ current_metrics.cash_sales|clp }}</strong></p>
+      <p><span>Gastos operacionales</span><strong class="amount-red">{{ current_metrics.operational_expenses|clp }}</strong></p>
+      <p><span>Gastos en efectivo</span><strong class="amount-red">{{ current_metrics.cash_expenses|clp }}</strong></p>
+      <p><span>Ganancia operativa</span><strong class="amount-blue">{{ current_metrics.operational_profit|clp }}</strong></p>
+      <p><span>Efectivo esperado</span><strong class="amount-blue">{{ current_metrics.expected_cash|clp }}</strong></p>
     </div>
   {% else %}
     <div class="empty-state">
       <strong>No hay jornada abierta.</strong>
-      <span>Abre una jornada para asociar ventas y gastos operacionales del día.</span>
+      <span>Abre una jornada para asociar automáticamente ventas y gastos operacionales.</span>
     </div>
   {% endif %}
 </section>
 
 <section class="panel">
-  <div class="panel-head">
-    <h2>Historial de jornadas</h2>
-  </div>
-  <div class="table-wrap responsive-table">
+  <div class="panel-head"><h2>Historial de jornadas</h2></div>
+  <div class="table-wrap responsive-table session-history">
     <table>
-      <thead><tr><th>Fecha</th><th>Estado</th><th>Duración</th><th class="amount-cell">Ventas</th><th class="amount-cell">Gastos</th><th class="amount-cell">Ganancia</th><th>Acciones</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Fecha</th><th>Apertura</th><th>Cierre</th><th>Duración</th>
+          <th class="amount-cell">Ventas</th><th class="amount-cell">Gastos</th><th class="amount-cell">Ganancia</th>
+          <th class="amount-cell">Efectivo esperado</th><th class="amount-cell">Efectivo contado</th>
+          <th class="amount-cell">Diferencia</th><th>Estado</th><th>Acciones</th>
+        </tr>
+      </thead>
       <tbody>
-        {% for item in sessions %}
+        {% for item in session_rows %}
+          {% set session = item.session %}
+          {% set metrics = item.metrics %}
           <tr>
-            <td data-label="Fecha">{{ item.business_date|date_cl }}</td>
-            <td data-label="Estado"><span class="status {{ item.status }}">{{ status_labels[item.status] }}</span></td>
-            <td data-label="Duración">{{ item.duration_hours }} h</td>
-            <td data-label="Ventas" class="amount-green amount-cell">{{ item.active_sales_total|clp }}</td>
-            <td data-label="Gastos" class="amount-red amount-cell">{{ item.active_operational_expenses_total|clp }}</td>
-            <td data-label="Ganancia" class="amount-blue amount-cell">{{ item.operating_profit|clp }}</td>
+            <td data-label="Fecha">{{ session.business_date|date_cl }}</td>
+            <td data-label="Apertura">{{ session.opened_at.strftime('%H:%M') }}</td>
+            <td data-label="Cierre">{{ session.closed_at.strftime('%H:%M') if session.closed_at else '-' }}</td>
+            <td data-label="Duración">{{ format_duration(metrics.duration_minutes) }}</td>
+            <td data-label="Ventas" class="amount-green amount-cell">{{ metrics.total_sales|clp }}</td>
+            <td data-label="Gastos" class="amount-red amount-cell">{{ metrics.operational_expenses|clp }}</td>
+            <td data-label="Ganancia" class="amount-blue amount-cell">{{ metrics.operational_profit|clp }}</td>
+            <td data-label="Efectivo esperado" class="amount-cell">{{ metrics.expected_cash|clp }}</td>
+            <td data-label="Efectivo contado" class="amount-cell">{{ metrics.counted_cash|clp if metrics.counted_cash is not none else '-' }}</td>
+            <td data-label="Diferencia" class="amount-cell {{ 'positive' if metrics.cash_difference is not none and metrics.cash_difference > 0 else 'negative' if metrics.cash_difference is not none and metrics.cash_difference < 0 }}">
+              {{ metrics.cash_difference|clp if metrics.cash_difference is not none else '-' }}
+            </td>
+            <td data-label="Estado"><span class="status {{ item.status_key }}">{{ item.status_label }}</span></td>
             <td data-label="Acciones" class="actions">
-              {% if item.status == 'closed' %}
+              <a class="button button-compact" href="{{ url_for('sessions.edit', session_id=session.id) }}">Editar</a>
+              {% if session.status != 'open' %}
                 <details class="action-menu">
                   <summary aria-label="Más acciones">⋯</summary>
                   <div>
-                    <form method="post" action="{{ url_for('sessions.archive', session_id=item.id) }}" data-confirm="¿Archivar esta jornada cerrada?">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                      <button type="submit">Archivar</button>
-                    </form>
-                    <form method="post" action="{{ url_for('sessions.delete', session_id=item.id) }}" data-delete-form data-delete-kind="Jornada" data-delete-description="Jornada {{ item.business_date|date_cl }}" data-delete-date="{{ item.opened_at|dt }}" data-delete-amount="{{ item.operating_profit|clp }}">
+                    <a href="{{ url_for('sessions.associate_movements', session_id=session.id) }}">Asociar movimientos</a>
+                    {% if session.status == 'closed' %}
+                      <form method="post" action="{{ url_for('sessions.archive', session_id=session.id) }}" data-confirm="¿Archivar esta jornada cerrada?">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit">Archivar</button>
+                      </form>
+                    {% endif %}
+                    <form method="post" action="{{ url_for('sessions.delete', session_id=session.id) }}" data-delete-form data-delete-kind="Jornada" data-delete-description="Jornada {{ session.business_date|date_cl }}" data-delete-date="{{ session.opened_at|dt }}" data-delete-amount="{{ metrics.operational_profit|clp }}">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                       <button class="danger-text" type="submit">Eliminar</button>
                     </form>
                   </div>
                 </details>
-              {% elif item.status == 'archived' %}
-                <form method="post" action="{{ url_for('sessions.delete', session_id=item.id) }}" data-delete-form data-delete-kind="Jornada" data-delete-description="Jornada {{ item.business_date|date_cl }}" data-delete-date="{{ item.opened_at|dt }}" data-delete-amount="{{ item.operating_profit|clp }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                  <button class="button button-compact danger-text" type="submit">Eliminar</button>
-                </form>
-              {% else %}
-                <span class="muted">Abierta</span>
               {% endif %}
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="7">No hay jornadas registradas.</td></tr>
+          <tr><td colspan="12">No hay jornadas registradas.</td></tr>
         {% endfor %}
       </tbody>
     </table>

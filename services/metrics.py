@@ -7,6 +7,7 @@ from models import db_session, now_santiago
 from models.expense import Expense
 from models.sale import Sale
 from models.work_session import WorkSession
+from services.work_sessions import calculate_work_session_metrics
 
 
 ENERGY_CATEGORIES = {"Gas", "Luz", "Agua", "Combustible"}
@@ -81,7 +82,10 @@ def calculate_metrics(start_dt, end_dt):
     total_result = operating_profit - investments
     average_ticket = round(total_sales / sales_count) if sales_count else 0
     operating_margin = round((operating_profit / total_sales) * 100, 1) if total_sales else 0
-    worked_hours = round(sum(session.duration_hours for session in sessions), 1)
+    worked_hours = round(
+        sum(calculate_work_session_metrics(session).duration_minutes for session in sessions) / 60,
+        1,
+    )
     opening_cash = sum(session.opening_cash for session in sessions)
     cash_balance = opening_cash + cash_sales - cash_operational_expenses
     total_flow = total_sales - operational_expenses - investments

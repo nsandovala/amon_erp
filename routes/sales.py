@@ -128,10 +128,10 @@ def restore(sale_id):
 
 def _sale_from_form(form):
     sale = Sale()
+    _apply_sale_form(sale, form)
     open_session = active_work_session()
     if open_session:
         sale.work_session_id = open_session.id
-    _apply_sale_form(sale, form)
     return sale
 
 

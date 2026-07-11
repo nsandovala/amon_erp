@@ -35,6 +35,7 @@ def init_engine(database_uri):
 
 
 def create_tables():
+    from models.audit_log import AuditLog  # noqa: F401
     from models.expense import Expense  # noqa: F401
     from models.sale import Sale  # noqa: F401
     from models.work_session import WorkSession  # noqa: F401
@@ -75,5 +76,42 @@ def ensure_soft_delete_columns(database_uri, backup_dir):
     with engine.begin() as connection:
         for table_name in missing:
             connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN deleted_at DATETIME"))
+
+    return missing
+
+
+def ensure_work_session_cash_columns(database_uri, backup_dir):
+    if not database_uri.startswith("sqlite"):
+        return []
+
+    inspector = inspect(engine)
+    if "work_sessions" not in inspector.get_table_names():
+        return []
+    columns = {column["name"] for column in inspector.get_columns("work_sessions")}
+    definitions = {
+        "closing_cash_counted": "INTEGER",
+        "closing_notes": "TEXT",
+    }
+    missing = [name for name in definitions if name not in columns]
+    if not missing:
+        return []
+
+    db_path = database_uri.replace("sqlite:///", "")
+    if db_path != ":memory:" and Path(db_path).exists():
+        target_dir = Path(backup_dir)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        shutil.copy2(db_path, target_dir / f"pre_migration_f0_{timestamp}.db")
+
+    with engine.begin() as connection:
+        for column_name in missing:
+            connection.execute(text(
+                f"ALTER TABLE work_sessions ADD COLUMN {column_name} {definitions[column_name]}"
+            ))
+        if "closing_cash_counted" in missing:
+            connection.execute(text(
+                "UPDATE work_sessions SET closing_cash_counted = closing_cash "
+                "WHERE closing_cash_counted IS NULL AND closing_cash IS NOT NULL"
+            ))
 
     return missing
