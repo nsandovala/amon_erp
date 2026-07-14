@@ -7,6 +7,7 @@ from services.audit import create_audit_log
 from services.work_sessions import (
     associate_historical_movements,
     calculate_work_session_metrics,
+    count_unassociated_active_movements,
     historical_movement_preview,
     session_balance_status,
 )
@@ -205,6 +206,7 @@ def _render_index(errors, field_errors, form):
         })
     open_session = active_work_session()
     open_metrics = calculate_work_session_metrics(open_session) if open_session else None
+    unassociated_count = count_unassociated_active_movements()
     return render_template(
         "sessions/index.html",
         session_rows=session_rows,
@@ -214,6 +216,7 @@ def _render_index(errors, field_errors, form):
         field_errors=field_errors,
         form=form,
         current_dt=now_santiago(),
+        unassociated_count=unassociated_count,
     )
 
 

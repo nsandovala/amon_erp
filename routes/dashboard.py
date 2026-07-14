@@ -6,6 +6,7 @@ from models import db_session
 from models.work_session import WorkSession
 from services.metrics import (
     calculate_metrics,
+    calculate_return_estimate,
     date_bounds,
     expenses_by_category,
     investments_by_category,
@@ -13,6 +14,7 @@ from services.metrics import (
     monthly_summary,
     sales_expenses_by_day,
 )
+from services.work_sessions import calculate_work_session_metrics
 
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -26,11 +28,16 @@ def index():
     start_dt, end_dt, start_date, end_date = date_bounds(period, start, end)
     sessions = (
         db_session.query(WorkSession)
-        .filter(WorkSession.status.in_(["open", "closed"]))
+        .filter(WorkSession.status.in_(["open", "closed"]), WorkSession.deleted_at.is_(None))
         .order_by(WorkSession.opened_at.desc())
         .limit(8)
         .all()
     )
+    cash_differences = []
+    for work_session in sessions:
+        session_metrics = calculate_work_session_metrics(work_session)
+        if work_session.status == "closed" and session_metrics.cash_difference:
+            cash_differences.append({"session": work_session, "metrics": session_metrics})
     return render_template(
         "dashboard.html",
         period=period,
@@ -43,6 +50,8 @@ def index():
         latest_movements=latest_movements(),
         monthly_rows=monthly_summary(start_date.year),
         recent_sessions=sessions,
+        cash_differences=cash_differences,
+        return_estimate=calculate_return_estimate(),
     )
 
 

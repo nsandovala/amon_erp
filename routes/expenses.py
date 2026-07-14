@@ -1,7 +1,14 @@
 from flask import Blueprint, abort, redirect, render_template, request, url_for
 
 from models import db_session, now_santiago
-from models.expense import EXPENSE_CATEGORIES, EXPENSE_TYPES, Expense
+from models.expense import (
+    EXPENSE_CATEGORY_CATALOG,
+    EXPENSE_TYPES,
+    KNOWN_EXPENSE_CATEGORIES,
+    Expense,
+    expense_categories_for,
+    is_expense_category_valid,
+)
 from models.sale import PAYMENT_METHODS
 from routes import (
     PAYMENT_LABELS,
@@ -41,7 +48,7 @@ def index():
     status = request.args.get("status", "active")
     if status in ("active", "archived"):
         query = query.filter(Expense.status == status)
-    if category in EXPENSE_CATEGORIES:
+    if category in KNOWN_EXPENSE_CATEGORIES:
         query = query.filter(Expense.category == category)
     if expense_type in EXPENSE_TYPES:
         query = query.filter(Expense.expense_type == expense_type)
@@ -53,6 +60,9 @@ def index():
     expenses = query.all()
     total_operational = sum(expense.amount for expense in expenses if expense.status == "active" and expense.expense_type == "operational")
     total_investments = sum(expense.amount for expense in expenses if expense.status == "active" and expense.expense_type == "investment")
+    selected_expense_type = form.get("expense_type", "operational")
+    if selected_expense_type not in EXPENSE_TYPES:
+        selected_expense_type = "operational"
     return render_template(
         "expenses/index.html",
         expenses=expenses,
@@ -61,7 +71,8 @@ def index():
         form=form,
         errors=errors,
         field_errors=field_errors,
-        categories=EXPENSE_CATEGORIES,
+        categories=expense_categories_for(selected_expense_type),
+        expense_category_catalog=EXPENSE_CATEGORY_CATALOG,
         expense_types=EXPENSE_TYPES,
         payment_methods=PAYMENT_METHODS,
         payment_labels=PAYMENT_LABELS,
@@ -93,12 +104,26 @@ def edit(expense_id):
         except ValueError as exc:
             db_session.rollback()
             add_form_error(errors, field_errors, exc)
+    selected_expense_type = request.form.get("expense_type", expense.expense_type)
+    if selected_expense_type not in EXPENSE_TYPES:
+        selected_expense_type = expense.expense_type
+    selected_category = request.form.get("category", expense.category)
+    preserve_legacy_category = (
+        selected_expense_type == expense.expense_type
+        and selected_category == expense.category
+        and not is_expense_category_valid(selected_expense_type, selected_category)
+    )
     return render_template(
         "expenses/edit.html",
         expense=expense,
         errors=errors,
         field_errors=field_errors,
-        categories=EXPENSE_CATEGORIES,
+        categories=expense_categories_for(
+            selected_expense_type,
+            selected_category if preserve_legacy_category else None,
+        ),
+        legacy_category=selected_category if preserve_legacy_category else None,
+        expense_category_catalog=EXPENSE_CATEGORY_CATALOG,
         expense_types=EXPENSE_TYPES,
         payment_methods=PAYMENT_METHODS,
         payment_labels=PAYMENT_LABELS,
@@ -148,10 +173,15 @@ def _apply_expense_form(expense, form):
     expense_type = form.get("expense_type", "operational")
     payment_method = form.get("payment_method", "cash")
     description = (form.get("description") or "").strip()
-    if category not in EXPENSE_CATEGORIES:
-        raise ValueError("Selecciona una categoría válida.")
     if expense_type not in EXPENSE_TYPES:
         raise ValueError("Selecciona un tipo válido.")
+    preserves_legacy_category = (
+        expense.id is not None
+        and category == expense.category
+        and expense_type == expense.expense_type
+    )
+    if not is_expense_category_valid(expense_type, category) and not preserves_legacy_category:
+        raise ValueError("Selecciona una categoría válida para el tipo de movimiento.")
     if payment_method not in PAYMENT_METHODS:
         raise ValueError("Selecciona un medio de pago válido.")
     if not description:

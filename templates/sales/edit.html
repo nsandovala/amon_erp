@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Editar venta · TBB Finanzas{% endblock %}
 {% block heading %}Editar venta{% endblock %}
+{% block page_description %}<p class="page-description">Actualiza la información registrada de esta venta.</p>{% endblock %}
 {% block content %}
-<section class="panel page-form">
+<section class="section-card page-form">
   {% include "partials/errors.html" %}
   <form method="post" class="form-grid form-grid-wide">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -16,7 +17,7 @@
     <label class="span-full">Notas<textarea name="notes">{{ request.form.get('notes', sale.notes or '') }}</textarea></label>
     <div class="form-actions span-full">
       <a class="button button-muted" href="{{ url_for('sales.detail', sale_id=sale.id) }}">Cancelar</a>
-      <button class="button button-green" type="submit">Guardar cambios</button>
+      <button class="button button-sales" type="submit">Guardar cambios</button>
     </div>
   </form>
 </section>

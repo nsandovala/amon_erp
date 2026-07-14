@@ -1,13 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Editar jornada · TBB Finanzas{% endblock %}
 {% block heading %}Editar jornada{% endblock %}
+{% block page_description %}<p class="page-description">Corrige datos de la jornada sin modificar sus movimientos asociados.</p>{% endblock %}
 
 {% block content %}
-<section class="panel narrow">
-  <div class="panel-head">
+<section class="section-card narrow">
+  <div class="section-heading">
     <h2>{{ work_session.business_date|date_cl }}</h2>
     <span class="status {{ work_session.status }}">{{ 'Abierta' if work_session.status == 'open' else 'Archivada' if work_session.status == 'archived' else 'Cerrada' }}</span>
   </div>
+  <p class="callout"><strong>Apertura registrada:</strong> {{ work_session.opened_at|dt }}</p>
   {% include "partials/errors.html" %}
   <form method="post" class="form-grid" {% if work_session.status != 'open' %}data-confirm="¿Guardar cambios en esta jornada cerrada? Los movimientos asociados no serán modificados."{% endif %}>
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

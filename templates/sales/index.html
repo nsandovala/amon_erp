@@ -1,98 +1,64 @@
 {% extends "base.html" %}
 {% block title %}Ventas · TBB Finanzas{% endblock %}
 {% block heading %}Ventas{% endblock %}
+{% block page_description %}<p class="page-description">Registra ingresos y revisa el detalle del periodo seleccionado.</p>{% endblock %}
 
 {% block content %}
-<section class="panel page-form">
-  <div class="panel-head">
-    <h2>Agregar venta</h2>
-  </div>
+<section class="section-card page-form" id="new-sale">
+  <div class="section-heading"><div><p class="section-kicker">Nuevo movimiento</p><h2>Agregar venta</h2></div></div>
   {% include "partials/errors.html" %}
   <form method="post" class="form-grid form-grid-wide">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>Monto CLP<input name="amount" inputmode="numeric" required value="{{ form.get('amount', '') }}"></label>
-    {% with prefix='occurred_at', date_value=form.get('occurred_at_date', ''), time_value=form.get('occurred_at_time', '') %}
-      {% include "partials/date_time_fields.html" %}
-    {% endwith %}
-    <label>Medio de pago
-      <select name="payment_method">
-        {% for key in payment_methods %}<option value="{{ key }}" {{ 'selected' if form.get('payment_method', 'cash') == key }}>{{ payment_labels[key] }}</option>{% endfor %}
-      </select>
-    </label>
-    <label>Canal
-      <select name="channel">
-        {% for key in channels %}<option value="{{ key }}" {{ 'selected' if form.get('channel', 'food_truck') == key }}>{{ channel_labels[key] }}</option>{% endfor %}
-      </select>
-    </label>
-    <label>Descripción<input name="description" value="{{ form.get('description', '') }}" placeholder="Ej: combo doble"></label>
+    {% with prefix='occurred_at', date_value=form.get('occurred_at_date', form_date(now_santiago())), time_value=form.get('occurred_at_time', form_time(now_santiago())) %}{% include "partials/date_time_fields.html" %}{% endwith %}
+    <label class="fill-now-label" aria-hidden="true">&nbsp;<button class="button button-compact button-secondary" type="button" data-fill-now data-fill-target="occurred_at">Ahora</button></label>
+    <label>Medio de pago<select name="payment_method">{% for key in payment_methods %}<option value="{{ key }}" {{ 'selected' if form.get('payment_method', 'cash') == key }}>{{ payment_labels[key] }}</option>{% endfor %}</select></label>
+    <label>Canal<select name="channel">{% for key in channels %}<option value="{{ key }}" {{ 'selected' if form.get('channel', 'food_truck') == key }}>{{ channel_labels[key] }}</option>{% endfor %}</select></label>
+    <label class="span-2">Descripción<input name="description" value="{{ form.get('description', '') }}" placeholder="Ej: combo doble"></label>
     <label class="span-full">Notas<textarea name="notes">{{ form.get('notes', '') }}</textarea></label>
-    <div class="form-actions span-full">
-      <button class="button button-green" type="submit">Guardar venta</button>
-    </div>
+    <div class="form-actions span-full"><button class="button button-sales" type="submit">Guardar venta</button></div>
   </form>
 </section>
 
-<section class="panel">
-  <div class="panel-head">
-    <h2>Total del periodo</h2>
-    <strong class="amount-green total-amount">{{ total|clp }}</strong>
+<section class="section-card">
+  <div class="section-heading">
+    <div><p class="section-kicker">Periodo filtrado</p><h2>Resumen de ventas</h2></div>
+    <strong class="amount-green total-amount financial-amount">{{ total|clp }}</strong>
   </div>
-  <form class="filter-grid" method="get">
-    <input type="date" name="start" value="{{ request.args.get('start', '') }}">
-    <input type="date" name="end" value="{{ request.args.get('end', '') }}">
-    <select name="payment_method">
-      <option value="">Todos los pagos</option>
-      {% for key in payment_methods %}<option value="{{ key }}" {{ 'selected' if request.args.get('payment_method') == key }}>{{ payment_labels[key] }}</option>{% endfor %}
-    </select>
-    <select name="status">
-      <option value="active" {{ 'selected' if request.args.get('status', 'active') == 'active' }}>Activas</option>
-      <option value="archived" {{ 'selected' if request.args.get('status') == 'archived' }}>Archivadas</option>
-    </select>
-    <button class="button" type="submit">Filtrar</button>
+  <form class="filter-grid" method="get" aria-label="Filtros de ventas">
+    <label>Desde<input type="date" name="start" value="{{ request.args.get('start', '') }}"></label>
+    <label>Hasta<input type="date" name="end" value="{{ request.args.get('end', '') }}"></label>
+    <label>Medio de pago<select name="payment_method"><option value="">Todos los pagos</option>{% for key in payment_methods %}<option value="{{ key }}" {{ 'selected' if request.args.get('payment_method') == key }}>{{ payment_labels[key] }}</option>{% endfor %}</select></label>
+    <label>Estado<select name="status"><option value="active" {{ 'selected' if request.args.get('status', 'active') == 'active' }}>Activas</option><option value="archived" {{ 'selected' if request.args.get('status') == 'archived' }}>Archivadas</option></select></label>
+    <button class="button button-secondary" type="submit">Aplicar filtros</button>
   </form>
 </section>
 
-<section class="panel">
-  <div class="panel-head">
-    <h2>Historial de ventas</h2>
-  </div>
-  <div class="table-wrap responsive-table">
-    <table>
-      <thead><tr><th>Fecha</th><th>Descripción</th><th>Pago</th><th>Canal</th><th class="amount-cell">Monto</th><th>Estado</th><th>Acciones</th></tr></thead>
-      <tbody>
-        {% for sale in sales %}
-          <tr>
-            <td data-label="Fecha">{{ sale.occurred_at|dt }}</td>
-            <td data-label="Descripción"><strong>{{ sale.description or 'Venta' }}</strong></td>
-            <td data-label="Pago">{{ payment_labels[sale.payment_method] }}</td>
-            <td data-label="Canal">{{ channel_labels[sale.channel] }}</td>
-            <td data-label="Monto" class="amount-green amount-cell">{{ sale.amount|clp }}</td>
-            <td data-label="Estado"><span class="status {{ sale.status }}">{{ status_labels[sale.status] }}</span></td>
-            <td data-label="Acciones" class="actions">
-              <a class="button button-compact" href="{{ url_for('sales.edit', sale_id=sale.id) }}">Editar</a>
-              <details class="action-menu">
-                <summary aria-label="Más acciones">⋯</summary>
-                <div>
+<section class="section-card">
+  <div class="section-heading"><div><p class="section-kicker">Registro</p><h2>Historial de ventas</h2></div><span class="muted">{{ sales|length }} movimientos</span></div>
+  {% if sales %}
+    <div class="table-wrap responsive-table">
+      <table class="data-table">
+        <thead><tr><th>Fecha</th><th>Descripción</th><th>Pago</th><th>Canal</th><th class="amount-cell">Monto</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody>
+          {% for sale in sales %}
+            <tr class="mobile-record-card">
+              <td data-label="Fecha">{{ sale.occurred_at|dt }}</td><td data-label="Descripción"><strong>{{ sale.description or 'Venta' }}</strong></td><td data-label="Pago">{{ payment_labels[sale.payment_method] }}</td><td data-label="Canal">{{ channel_labels[sale.channel] }}</td><td data-label="Monto" class="amount-green amount-cell financial-amount">{{ sale.amount|clp }}</td><td data-label="Estado"><span class="status {{ sale.status }}">{{ status_labels[sale.status] }}</span></td>
+              <td data-label="Acciones" class="actions">
+                <a class="button button-compact button-secondary" href="{{ url_for('sales.edit', sale_id=sale.id) }}">Editar</a>
+                <details class="action-menu"><summary aria-label="Más acciones para {{ sale.description or 'venta' }}">⋯</summary><div>
                   <a href="{{ url_for('sales.detail', sale_id=sale.id) }}">Ver detalle</a>
-                  {% if sale.status == 'active' %}
-                    <form method="post" action="{{ url_for('sales.archive', sale_id=sale.id) }}" data-confirm="¿Archivar esta venta?">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                      <button type="submit">Archivar</button>
-                    </form>
-                  {% endif %}
-                  <form method="post" action="{{ url_for('sales.delete', sale_id=sale.id) }}" data-delete-form data-delete-kind="Venta" data-delete-description="{{ sale.description or 'Venta' }}" data-delete-date="{{ sale.occurred_at|dt }}" data-delete-amount="{{ sale.amount|clp }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button class="danger-text" type="submit">Eliminar</button>
-                  </form>
-                </div>
-              </details>
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="7">No hay ventas para estos filtros.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+                  {% if sale.status == 'active' %}<form method="post" action="{{ url_for('sales.archive', sale_id=sale.id) }}" data-confirm="¿Archivar esta venta?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Archivar</button></form>{% endif %}
+                  <form method="post" action="{{ url_for('sales.delete', sale_id=sale.id) }}" data-delete-form data-delete-kind="Venta" data-delete-description="{{ sale.description or 'Venta' }}" data-delete-date="{{ sale.occurred_at|dt }}" data-delete-amount="{{ sale.amount|clp }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="danger-text" type="submit">Eliminar</button></form>
+                </div></details>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state"><strong>Sin ventas para estos filtros</strong><span>Ajusta el periodo o registra una nueva venta.</span><a class="button button-sales button-compact" href="#new-sale">Agregar venta</a></div>
+  {% endif %}
 </section>
 {% endblock %}

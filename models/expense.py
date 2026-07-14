@@ -6,14 +6,44 @@ from models.sale import PAYMENT_METHODS, MOVEMENT_STATUSES
 
 
 EXPENSE_TYPES = ("operational", "investment")
-EXPENSE_CATEGORIES = (
+EXPENSE_CATEGORY_CATALOG = {
+    "operational": (
+        "Insumos",
+        "Luz",
+        "Agua",
+        "Gas",
+        "Internet y telefonía",
+        "Packaging",
+        "Combustible",
+        "Delivery / courier",
+        "Comisiones de pago",
+        "Arriendo",
+        "Personal",
+        "Limpieza",
+        "Mantención y reparaciones",
+        "Marketing recurrente",
+        "Otros operacionales",
+    ),
+    "investment": (
+        "Equipamiento",
+        "Mobiliario",
+        "Infraestructura y adecuaciones",
+        "Permisos y habilitación",
+        "Traslado y puesta en marcha",
+        "Marketing de lanzamiento",
+        "Software e implementación",
+        "Mantenimiento mayor o mejoras",
+        "Otros de inversión",
+    ),
+}
+EXPENSE_CATEGORIES = tuple(
+    category
+    for expense_type in EXPENSE_TYPES
+    for category in EXPENSE_CATEGORY_CATALOG[expense_type]
+)
+LEGACY_EXPENSE_CATEGORIES = (
     "Inversión food truck",
-    "Equipamiento",
-    "Insumos",
     "Proveedores",
-    "Gas",
-    "Luz",
-    "Agua",
     "Traslado",
     "Combustible",
     "Trámites",
@@ -25,6 +55,18 @@ EXPENSE_CATEGORIES = (
     "Gastos operacionales",
     "Otros",
 )
+KNOWN_EXPENSE_CATEGORIES = tuple(dict.fromkeys((*EXPENSE_CATEGORIES, *LEGACY_EXPENSE_CATEGORIES)))
+
+
+def expense_categories_for(expense_type, current_category=None):
+    categories = EXPENSE_CATEGORY_CATALOG.get(expense_type, ())
+    if current_category and current_category not in categories:
+        return (*categories, current_category)
+    return categories
+
+
+def is_expense_category_valid(expense_type, category):
+    return category in EXPENSE_CATEGORY_CATALOG.get(expense_type, ())
 
 
 class Expense(Base):

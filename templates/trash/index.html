@@ -1,36 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Papelera · TBB Finanzas{% endblock %}
 {% block heading %}Papelera{% endblock %}
+{% block page_description %}<p class="page-description">Restaura registros eliminados sin alterar su información original.</p>{% endblock %}
 
 {% block content %}
-<section class="panel">
-  <div class="panel-head">
-    <h2>Registros eliminados</h2>
-  </div>
-  <div class="table-wrap responsive-table">
-    <table>
-      <thead><tr><th>Eliminado</th><th>Tipo</th><th>Descripción</th><th>Fecha original</th><th>Categoría</th><th class="amount-cell">Monto</th><th>Acciones</th></tr></thead>
-      <tbody>
-        {% for item in items %}
-          <tr>
-            <td data-label="Eliminado">{{ item.deleted_at|dt }}</td>
-            <td data-label="Tipo">{{ item.label }}</td>
-            <td data-label="Descripción"><strong>{{ item.description }}</strong></td>
-            <td data-label="Fecha original">{{ item.occurred_at|dt }}</td>
-            <td data-label="Categoría">{{ item.category }}</td>
-            <td data-label="Monto" class="{{ 'amount-green' if item.kind == 'sale' else 'amount-amber' if item.kind == 'investment' else 'amount-red' }} amount-cell">{{ item.amount|clp }}</td>
-            <td data-label="Acciones" class="actions">
-              <form method="post" action="{{ url_for(item.restore_url, sale_id=item.id) if item.kind == 'sale' else url_for(item.restore_url, expense_id=item.id) if item.kind in ['expense', 'investment'] else url_for(item.restore_url, session_id=item.id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button class="button button-compact button-purple" type="submit">Restaurar</button>
-              </form>
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="7">La papelera está vacía.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+<section class="section-card">
+  <div class="section-heading"><div><p class="section-kicker">Recuperación</p><h2>Registros eliminados</h2></div><span class="muted">{{ items|length }} registros</span></div>
+  {% if items %}
+    <div class="table-wrap responsive-table"><table class="data-table"><thead><tr><th>Eliminado</th><th>Tipo</th><th>Descripción</th><th>Fecha original</th><th>Categoría</th><th class="amount-cell">Monto</th><th>Acciones</th></tr></thead><tbody>
+      {% for item in items %}
+        <tr class="mobile-record-card"><td data-label="Eliminado">{{ item.deleted_at|dt }}</td><td data-label="Tipo">{{ item.label }}</td><td data-label="Descripción"><strong>{{ item.description }}</strong></td><td data-label="Fecha original">{{ item.occurred_at|dt }}</td><td data-label="Categoría">{{ item.category }}</td><td data-label="Monto" class="{{ 'amount-green' if item.kind == 'sale' else 'amount-amber' if item.kind == 'investment' else 'amount-red' }} amount-cell financial-amount">{{ item.amount|clp }}</td>
+          <td data-label="Acciones" class="actions"><form method="post" action="{{ url_for(item.restore_url, sale_id=item.id) if item.kind == 'sale' else url_for(item.restore_url, expense_id=item.id) if item.kind in ['expense', 'investment'] else url_for(item.restore_url, session_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-compact button-primary" type="submit">Restaurar</button></form></td>
+        </tr>
+      {% endfor %}
+    </tbody></table></div>
+  {% else %}
+    <div class="empty-state"><strong>La papelera está vacía</strong><span>Los registros eliminados aparecerán aquí y podrán restaurarse.</span></div>
+  {% endif %}
 </section>
 {% endblock %}

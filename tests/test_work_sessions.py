@@ -111,6 +111,39 @@ def test_session_history_renders_associated_metrics(client, app):
     assert b"Cerrada y cuadrada" in response.data
 
 
+def test_session_history_renders_exact_non_zero_financial_metrics(client, app):
+    with app.app_context():
+        session = make_session(
+            opening_cash=20000,
+            closed_at=datetime(2026, 7, 10, 20),
+            counted_cash=27000,
+        )
+        add_sale(session, 10000, "cash")
+        add_sale(session, 5000, "transfer")
+        add_expense(session, 3000, "cash")
+        add_expense(session, 7000, "cash", expense_type="investment")
+        db_session.commit()
+
+        metrics = calculate_work_session_metrics(session)
+        assert metrics.total_sales == 15000
+        assert metrics.cash_sales == 10000
+        assert metrics.operational_expenses == 3000
+        assert metrics.cash_expenses == 3000
+        assert metrics.operational_profit == 12000
+        assert metrics.expected_cash == 27000
+
+    response = client.get("/jornadas/")
+
+    assert response.status_code == 200
+    for amount in (b"$20.000", b"$15.000", b"$3.000", b"$12.000", b"$27.000"):
+        assert amount in response.data
+    assert b"$7.000" not in response.data
+    assert b"Efectivo inicial" in response.data
+    assert b"Efectivo esperado al cierre" in response.data
+    assert b"Efectivo contado" in response.data
+    assert b"Diferencia de caja" in response.data
+
+
 def test_transfer_sale_does_not_increase_physical_cash(app):
     with app.app_context():
         session = make_session(opening_cash=30000)
