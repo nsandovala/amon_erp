@@ -1,4 +1,4 @@
-# TBB Finanzas
+# AMON ERP
 
 Aplicación local-first para controlar las finanzas del food truck The Best Burger. Está construida con Flask, SQLite, SQLAlchemy, Jinja2, CSS/JS vanilla y Chart.js por CDN.
 
