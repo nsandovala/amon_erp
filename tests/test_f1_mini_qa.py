@@ -399,7 +399,7 @@ def test_recovery_percentage_capped_at_100(app):
 
 def test_sale_form_prefills_current_santiago_date(client):
     response = client.get("/ventas/")
-    today = now_santiago().date().strftime("%d-%m-%Y")
+    today = now_santiago().date().isoformat()
     current_time = now_santiago().strftime("%H:%M")
 
     assert response.status_code == 200
@@ -409,7 +409,7 @@ def test_sale_form_prefills_current_santiago_date(client):
 
 def test_expense_form_prefills_current_santiago_date(client):
     response = client.get("/gastos/")
-    today = now_santiago().date().strftime("%d-%m-%Y")
+    today = now_santiago().date().isoformat()
 
     assert response.status_code == 200
     assert today.encode() in response.data
@@ -419,14 +419,14 @@ def test_sale_validation_error_preserves_submitted_date_time(client, app, csrf):
     response = client.post("/ventas/", data={
         **csrf,
         "amount": "abc",
-        "occurred_at_date": "05-06-2025",
+        "occurred_at_date": "2025-06-05",
         "occurred_at_time": "07:45",
         "payment_method": "cash",
         "channel": "food_truck",
     })
 
     assert response.status_code == 200
-    assert b"05-06-2025" in response.data
+    assert b"2025-06-05" in response.data
     assert b"07:45" in response.data
 
 
@@ -446,7 +446,7 @@ def test_sale_edit_keeps_original_date_time(client, app, csrf):
     response = client.get(f"/ventas/{sale_id}/editar")
 
     assert response.status_code == 200
-    assert b"15-03-2025" in response.data
+    assert b"2025-03-15" in response.data
     assert b"09:20" in response.data
 
 

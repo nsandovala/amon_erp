@@ -9,6 +9,15 @@ load_dotenv(BASE_DIR / '.env.local', override=False)
 load_dotenv(BASE_DIR / '.env', override=False)
 
 
+def resolve_database_uri(database_url=None):
+    database_url = database_url or os.environ.get("DATABASE_URL", "").strip()
+    if not database_url:
+        return f"sqlite:///{BASE_DIR / 'instance' / 'tbb_finanzas.db'}"
+    if database_url.startswith("postgresql://"):
+        return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return database_url
+
+
 def local_secret_key():
     secret_path = BASE_DIR / "instance" / ".secret_key"
     env_secret = (
@@ -26,6 +35,7 @@ def local_secret_key():
 
 
 class Config:
+    APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
     CLERK_PUBLISHABLE_KEY = os.environ.get('CLERK_PUBLISHABLE_KEY', '')
     CLERK_SECRET_KEY = os.environ.get('CLERK_SECRET_KEY', '')
     CLERK_AUTHORIZED_PARTIES = [value.strip() for value in os.environ.get(
@@ -36,9 +46,12 @@ class Config:
     ).split(',') if value.strip()]
     AUTH_TEST_BYPASS = False
     SECRET_KEY = local_secret_key()
-    SQLALCHEMY_DATABASE_URI = f"sqlite:///{BASE_DIR / 'instance' / 'tbb_finanzas.db'}"
+    SQLALCHEMY_DATABASE_URI = resolve_database_uri()
     BACKUP_DIR = BASE_DIR / "backups"
     TIMEZONE = "America/Santiago"
+    SESSION_COOKIE_SECURE = False
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
 
 
 class TestConfig(Config):

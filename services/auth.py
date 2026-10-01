@@ -35,6 +35,8 @@ def init_auth(app):
     def authenticate():
         g.user_id = None
         g.erp_access = False
+        if request.endpoint == 'health':
+            return None
         if app.testing and app.config['AUTH_TEST_BYPASS']:
             g.erp_access = True
             return None

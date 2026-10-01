@@ -16,6 +16,7 @@ from routes import (
     TYPE_LABELS,
     active_work_session,
     add_form_error,
+    apply_datetime_range,
     commit_or_flash,
     parse_int,
     parse_split_datetime,
@@ -52,10 +53,7 @@ def index():
         query = query.filter(Expense.category == category)
     if expense_type in EXPENSE_TYPES:
         query = query.filter(Expense.expense_type == expense_type)
-    if start:
-        query = query.filter(Expense.occurred_at >= f"{start} 00:00:00")
-    if end:
-        query = query.filter(Expense.occurred_at <= f"{end} 23:59:59")
+    query = apply_datetime_range(query, Expense.occurred_at, start, end)
 
     expenses = query.all()
     total_operational = sum(expense.amount for expense in expenses if expense.status == "active" and expense.expense_type == "operational")

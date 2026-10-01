@@ -8,6 +8,7 @@ from routes import (
     STATUS_LABELS,
     active_work_session,
     add_form_error,
+    apply_datetime_range,
     commit_or_flash,
     parse_int,
     parse_split_datetime,
@@ -41,10 +42,7 @@ def index():
         query = query.filter(Sale.status == status)
     if payment in PAYMENT_METHODS:
         query = query.filter(Sale.payment_method == payment)
-    if start:
-        query = query.filter(Sale.occurred_at >= f"{start} 00:00:00")
-    if end:
-        query = query.filter(Sale.occurred_at <= f"{end} 23:59:59")
+    query = apply_datetime_range(query, Sale.occurred_at, start, end)
 
     sales = query.all()
     total = sum(sale.amount for sale in sales if sale.status == "active")

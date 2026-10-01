@@ -4,12 +4,7 @@
     {{ date_label|default('Fecha') }}
     <input
       name="{{ prefix }}_date"
-      type="text"
-      inputmode="numeric"
-      maxlength="10"
-      pattern="\d{2}-\d{2}-\d{4}"
-      autocomplete="off"
-      placeholder="DD-MM-YYYY"
+      type="date"
       required
       value="{{ date_value }}"
       aria-invalid="{{ 'true' if errors_map.get(prefix ~ '_date') else 'false' }}"
@@ -25,9 +20,10 @@
       type="text"
       inputmode="numeric"
       maxlength="5"
+      placeholder="HH:mm"
       pattern="([01]\d|2[0-3]):[0-5]\d"
       autocomplete="off"
-      placeholder="HH:mm"
+      data-time-input
       required
       value="{{ time_value }}"
       aria-invalid="{{ 'true' if errors_map.get(prefix ~ '_time') else 'false' }}"

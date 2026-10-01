@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 
 from flask import flash
 
@@ -73,6 +73,11 @@ def parse_date_local(value, field_name="La fecha"):
     raw = (value or "").strip()
     if not raw:
         return now_santiago().date()
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", raw):
+        try:
+            return date.fromisoformat(raw)
+        except ValueError:
+            raise ValueError(f"{field_name} no es válida.")
     if not DATE_PATTERN.match(raw):
         raise ValueError(f"{field_name} debe usar DD-MM-YYYY con año de cuatro dígitos.")
     try:
@@ -131,6 +136,27 @@ def parse_split_date(form, field_name, label="La fecha"):
         return parse_date_local(form.get(field_name), label)
     except ValueError as exc:
         raise FormValidationError(str(exc), {field_name: str(exc)})
+
+
+def apply_datetime_range(query, column, start_value, end_value):
+    try:
+        start_date = date.fromisoformat(start_value) if start_value else None
+    except ValueError:
+        start_date = None
+    try:
+        end_date = date.fromisoformat(end_value) if end_value else None
+    except ValueError:
+        end_date = None
+
+    if start_date:
+        query = query.filter(column >= datetime.combine(start_date, time.min))
+    if end_date:
+        if end_date == date.max:
+            query = query.filter(column <= datetime.combine(end_date, time.max))
+        else:
+            next_day = end_date + timedelta(days=1)
+            query = query.filter(column < datetime.combine(next_day, time.min))
+    return query
 
 
 def active_work_session():

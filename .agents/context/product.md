@@ -1,8 +1,8 @@
-# Producto: TBB Finanzas
+# Producto: AMON ERP
 
 ## Nombre actual
 
-**TBB Finanzas**
+**AMON ERP**
 
 ## Visión futura
 

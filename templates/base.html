@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
-    <title>{% block title %}TBB Finanzas{% endblock %}</title>
+    <title>{% block title %}AMON ERP{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
     <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
@@ -14,10 +14,10 @@
     <div class="app-shell">
       <aside class="sidebar" id="appNavigation" aria-label="Navegación principal">
         <div class="sidebar-head">
-          <a class="brand" href="{{ url_for('dashboard.index') }}" aria-label="TBB Finanzas, ir al dashboard">
-            <span class="brand-mark">TBB</span>
+          <a class="brand" href="{{ url_for('dashboard.index') }}" aria-label="AMON ERP, The Best Burger, ir al resumen financiero">
+            <span class="brand-mark">AMON</span>
             <span class="brand-copy">
-              <strong>Finanzas</strong>
+              <strong>AMON ERP</strong>
               <small>The Best Burger</small>
             </span>
           </a>
@@ -55,14 +55,18 @@
 
         <div class="sidebar-foot">
           {% include 'auth/controls.html' %}
-          <form action="{{ url_for('backup') }}" method="post" class="backup-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button class="button button-secondary backup-button" type="submit">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>
-              Crear respaldo
-            </button>
-          </form>
-          <span class="storage-note">Datos guardados localmente</span>
+          {% if supports_local_backup %}
+            <form action="{{ url_for('backup') }}" method="post" class="backup-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="button button-secondary backup-button" type="submit">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>
+                Crear respaldo
+              </button>
+            </form>
+            <span class="storage-note">Datos guardados localmente</span>
+          {% else %}
+            <span class="storage-note">Respaldo PostgreSQL fuera de esta aplicación</span>
+          {% endif %}
         </div>
 
         <svg class="cat-watermark" viewBox="0 0 220 180" aria-hidden="true">
@@ -78,15 +82,15 @@
           <button class="icon-button" type="button" data-nav-open aria-controls="appNavigation" aria-expanded="false" aria-label="Abrir navegación">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
           </button>
-          <span class="mobile-brand">TBB Finanzas</span>
+          <span class="mobile-brand">AMON ERP · The Best Burger</span>
           <span class="mobile-session-dot {{ 'is-open' if open_session }}" aria-label="{{ 'Jornada abierta' if open_session else 'Jornada cerrada' }}"></span>
         </div>
 
         <div class="content-frame">
           <header class="page-header">
             <div>
-              <p class="eyebrow">{% block eyebrow %}Control financiero{% endblock %}</p>
-              <h1>{% block heading %}TBB Finanzas{% endblock %}</h1>
+              <p class="eyebrow">{% block eyebrow %}The Best Burger{% endblock %}</p>
+              <h1>{% block heading %}AMON ERP{% endblock %}</h1>
               {% block page_description %}{% endblock %}
             </div>
             <div class="session-pill {{ 'is-open' if open_session else 'is-closed' }}">

@@ -1,12 +1,12 @@
 # AMON ERP
 
-Aplicación local-first para controlar las finanzas del food truck The Best Burger. Está construida con Flask, SQLite, SQLAlchemy, Jinja2, CSS/JS vanilla y Chart.js por CDN.
+Aplicación Flask para controlar las finanzas del food truck The Best Burger. Usa SQLite como fallback local y está preparada para PostgreSQL/Neon en staging y producción.
 
 ## Stack
 
 - Python 3.12
 - Flask
-- SQLite
+- SQLite local / PostgreSQL (Neon)
 - SQLAlchemy
 - Jinja2
 - HTML, CSS vanilla y JavaScript vanilla
@@ -26,17 +26,17 @@ Aplicación local-first para controlar las finanzas del food truck The Best Burg
 - Papelera con restauración de ventas, gastos, inversiones y jornadas.
 - Historial financiero con búsqueda y filtros.
 - Exportación CSV mensual compatible con Excel en español.
-- Respaldo manual de la base SQLite.
-- Migración automática segura para bases antiguas.
+- Respaldo manual cuando se usa SQLite.
+- Compatibilidad no destructiva con bases SQLite antiguas.
 
 ## Decisiones relevantes
 
 - El dinero se guarda siempre como enteros en pesos chilenos, sin floats.
-- Las fechas se capturan como `DD-MM-YYYY` y las horas como `HH:mm` en formato 24 horas.
+- Los formularios usan controles nativos de fecha y hora; las vistas de lectura muestran fechas como `DD-MM-YYYY` y horas en formato 24 horas.
 - Las fechas se tratan como hora local de `America/Santiago`.
 - `Archivar` conserva el registro histórico.
 - `Eliminar` no borra físicamente: marca `deleted_at`, excluye el registro de cálculos y lo mueve a Papelera.
-- SQLite impide más de una jornada abierta mediante un índice único parcial.
+- SQLite y PostgreSQL impiden más de una jornada abierta mediante un índice único parcial.
 - `business_date` se deriva de `opened_at`; no se solicita dos veces al usuario.
 - Las métricas de jornada se calculan desde `work_session_id`, nunca por coincidencia de fecha.
 - `closing_cash_counted` guarda el efectivo contado. `expected_cash` y `cash_difference` se calculan y no se persisten.
@@ -85,6 +85,26 @@ proyecto. El diagnóstico del CLI no sustituye las pruebas Flask.
 
 Referencias: [SDK Python](https://github.com/clerk/clerk-sdk-python) y
 [ClerkJS mediante script](https://clerk.com/docs/js-frontend/getting-started/quickstart).
+
+### Base de datos por entorno
+
+- Sin `DATABASE_URL`, la aplicación usa `instance/tbb_finanzas.db`.
+- Con `DATABASE_URL`, usa esa conexión. Las URI `postgresql://...` se normalizan a `postgresql+psycopg://...` para psycopg 3.
+- `DATABASE_URL_UNPOOLED` queda reservada para futuras tareas administrativas y no se usa durante el runtime normal.
+- `TestConfig` siempre usa SQLite in-memory y la suite no necesita una conexión Neon.
+
+`psycopg[binary]` provee el driver PostgreSQL y `gunicorn` el servidor WSGI para un despliegue posterior. Ambos están fijados en `requirements.txt`. No se agregó un sistema de migraciones en esta fase.
+
+Para una base PostgreSQL vacía, el arranque actual ejecuta `Base.metadata.create_all()` como bootstrap inicial del schema. Esto no reemplaza migraciones versionadas y no debe utilizarse para evolucionar un schema existente.
+
+Comandos de diagnóstico, sin mostrar la URI ni credenciales:
+
+```bash
+flask --app app db-check
+flask --app app db-counts
+```
+
+`db-check` valida conexión, tablas esperadas y columnas críticas. `db-counts` informa los conteos de `sales`, `expenses`, `work_sessions` y `audit_logs` para comparar una futura migración. No copia datos entre motores.
 
 ### Entorno Python
 
@@ -142,6 +162,16 @@ flask --app app run --debug
 http://127.0.0.1:5000
 ```
 
+Para staging o producción define `APP_ENV=staging` o `APP_ENV=production`. Esos entornos activan cookies `Secure`, `HttpOnly` y `SameSite=Lax`. La entrada WSGI preparada es:
+
+```bash
+gunicorn wsgi:app
+```
+
+El servidor de desarrollo Flask se mantiene solo para desarrollo local. El deploy a Render y la integración con AMON Shop siguen pendientes.
+
+El endpoint público `GET /health` valida aplicación y base de datos mediante `SELECT 1`. Responde `200` con `{"status":"ok","database":"ok"}` o `503` con un estado degradado, sin depender de Clerk ni exponer configuración.
+
 ## Migración segura
 
 La aplicación agrega automáticamente la columna `deleted_at` a `sales`, `expenses` y `work_sessions` cuando detecta una base SQLite antigua. Antes de aplicar ese cambio no destructivo crea un respaldo en `backups/`:
@@ -198,9 +228,9 @@ Para corregir movimientos históricos:
 
 Solo se asocian ventas y gastos operacionales activos, no eliminados, sin jornada y cuyo `occurred_at` esté entre apertura y cierre. Nunca se reasigna un movimiento ya asociado.
 
-## Respaldo y restauración
+## Respaldo y restauración SQLite
 
-El botón `Crear respaldo` copia `instance/tbb_finanzas.db` dentro de `backups/` con un nombre como:
+Cuando el backend es SQLite, el botón `Crear respaldo` copia `instance/tbb_finanzas.db` dentro de `backups/` con un nombre como:
 
 ```text
 tbb_finanzas_YYYY-MM-DD_HH-MM-SS.db
@@ -213,11 +243,19 @@ Para restaurar manualmente:
 3. Reemplazar `instance/tbb_finanzas.db`.
 4. Iniciar nuevamente con `flask --app app run --debug`.
 
+Cuando el backend es PostgreSQL el botón local se oculta y el endpoint no intenta crear ni copiar archivos `.db`. Los respaldos productivos se diseñarán usando las capacidades administradas del proveedor; esta fase no implementa `pg_dump` ni backup manual de Neon.
+
+La migración de datos SQLite a Neon también está pendiente. Una fase separada deberá preservar IDs, `work_session_id`, timestamps, soft deletes y `AuditLog`, además de validar conteos y sumas financieras.
+
 ## Pruebas
 
 ```bash
-pytest -q
+python -m pytest -q
+scripts/qa.sh --quick
+scripts/qa.sh --full
 ```
+
+`--quick` ejecuta tests, `compileall` y `git diff --check`. `--full` agrega `db-check`, `db-counts` y un Gunicorn temporal contra `/health`. Ningún modo carga datos de demostración, reinicia ni elimina la base de datos.
 
 Validaciones cubiertas:
 
@@ -259,7 +297,8 @@ Estos archivos se generan localmente y están ignorados por Git:
 
 ## Limitaciones reales
 
-- No hay autenticación porque el sistema está diseñado para uso local en una Mac.
+- El control de acceso actual es una allowlist de Clerk; RBAC sigue pendiente.
 - Chart.js se carga desde CDN; los gráficos requieren conexión a internet en el navegador.
 - No hay importador de CSV histórico.
 - No hay conciliación bancaria automática ni integración con medios de pago.
+- La migración SQLite a Neon, el deploy a Render y la integración con AMON Shop están pendientes.

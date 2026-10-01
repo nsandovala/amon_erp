@@ -13,7 +13,7 @@
 
 ## Tests
 
-- **90 pruebas verdes**.
+- **147 pruebas verdes**.
 - Suite: pytest.
 
 ## Funcionalidades entregadas en F0
@@ -39,6 +39,33 @@
 - Alerta de movimientos activos sin `work_session_id`.
 - Retorno estimado simple calculado en servicios Python.
 
+## Preparación F1.1 implementada
+
+- SQLite continúa como fallback cuando `DATABASE_URL` no está definida.
+- PostgreSQL/Neon se selecciona mediante `DATABASE_URL` y psycopg 3.
+- `TestConfig` continúa aislado en SQLite in-memory.
+- El índice parcial de jornada abierta está definido para SQLite y PostgreSQL.
+- `GET /health`, `db-check` y `db-counts` permiten diagnóstico sin exponer secretos.
+- El respaldo por copia de archivo solo se ofrece para SQLite.
+- Cookies seguras se activan con `APP_ENV=staging` o `APP_ENV=production`.
+- La entrada WSGI para un futuro deploy es `gunicorn wsgi:app`.
+- `Base.metadata.create_all()` se usa solo como bootstrap inicial; no existe todavía un sistema de migraciones versionadas.
+- Smoke Neon de staging/desarrollo completado el 2026-10-01: conexión y `SELECT 1` correctos; se crearon `audit_logs`, `expenses`, `sales` y `work_sessions` sobre una base vacía; `db-check` y `/health` correctos; conteos iniciales en cero.
+- La variable local tiene un valor `channel_binding` concatenado accidentalmente. El smoke usó `require` solo en memoria; `.env.local` debe corregirse antes del uso normal y permanece fuera de Git.
+
+## F1.1.1 QA hardening implementado
+
+- Los filtros de fecha de ventas y gastos enlazan valores `datetime` tipados y usan un límite final exclusivo.
+- Los formularios de creación y edición usan controles nativos de fecha y hora; las vistas de lectura conservan formato chileno.
+- La jornada abierta ofrece una acción directa para llegar al cierre sin alterar sus reglas financieras.
+- `scripts/qa.sh --quick` y `scripts/qa.sh --full` automatizan validaciones no destructivas para SQLite y PostgreSQL.
+
+## F1.1.2 pulido final de UI implementado
+
+- Las horas editables usan un control determinista `HH:mm`; las fechas conservan controles nativos.
+- Los menús secundarios de tablas flotan fuera de contenedores con scroll y se ajustan a los límites del viewport.
+- La metadata y navegación identifican el producto como AMON ERP y el contexto activo como The Best Burger.
+
 ## Limitaciones actuales
 
 - No multiempresa.
@@ -47,17 +74,21 @@
 - No Compraquí.
 - No conciliación bancaria.
 - No IVA avanzado.
-- No deploy automatizado.
-- No autenticación ni roles.
-- No PostgreSQL (SQLite local).
+- No deploy a Render.
+- Clerk Auth Foundation existe; no hay RBAC.
+- No migración de datos SQLite a Neon.
+- No integración con AMON Shop.
+- No estrategia productiva de backup PostgreSQL definida todavía.
 - No HEO Copilot integrado.
 
 ## Estado del repositorio
 
-- Rama activa: `feature/f1-erp-redesign`.
-- Sin cambios sin commitear al inicio de esta tarea.
-- Sin archivos no rastreados relacionados con producción.
+- Rama activa: `feature/f1.1-production-foundation`.
+- Baseline: `310f22d merge: integrate Clerk auth foundation` con 111 tests.
+- F1.1, F1.1.1 y F1.1.2 agregan 36 tests; total actual: 147.
+- Hay cambios de F1.1 sin commit durante esta tarea.
 
 ## Próxima fase planificada
 
-- **F1.1**: preparación backend e infraestructura, sujeta a decisión explícita antes de agregar dependencias, migrar base de datos o desplegar.
+- Diseñar la migración de datos SQLite a Neon como fase separada.
+- Preparar el deploy a Render sin integrar todavía AMON Shop.
