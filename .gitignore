@@ -6,3 +6,8 @@ instance/*.db
 instance/.secret_key
 backups/*.db
 .DS_Store
+.env
+.env.*
+!.env.example
+.clerk/
+.env.local
