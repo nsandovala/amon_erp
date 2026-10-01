@@ -13,6 +13,7 @@ from models import create_tables, db_session, drop_tables
 def app(tmp_path):
     flask_app = create_app({
         "TESTING": True,
+        "AUTH_TEST_BYPASS": True,
         "SECRET_KEY": "test-secret",
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "BACKUP_DIR": tmp_path / "backups",

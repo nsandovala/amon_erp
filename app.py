@@ -4,7 +4,7 @@ import secrets
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from flask import Flask, Response, abort, flash, redirect, render_template, request, session, url_for
+from flask import Flask, Response, abort, flash, g, redirect, render_template, request, session, url_for
 
 from config import Config
 from models import (
@@ -27,6 +27,7 @@ from routes.sales import sales_bp
 from routes.sessions import sessions_bp
 from routes.trash import trash_bp
 from services.backup import create_backup
+from services.auth import init_auth
 from services.metrics import monthly_summary
 
 
@@ -35,6 +36,7 @@ def create_app(test_config=None):
     app.config.from_object(Config)
     if test_config:
         app.config.update(test_config)
+    init_auth(app)
 
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
     Path(app.config["BACKUP_DIR"]).mkdir(parents=True, exist_ok=True)
@@ -69,7 +71,7 @@ def create_app(test_config=None):
             session["csrf_token"] = token
         return {
             "csrf_token": token,
-            "open_session": active_work_session(),
+            "open_session": active_work_session() if getattr(g, 'erp_access', False) else None,
             "payment_labels": PAYMENT_LABELS,
             "format_clp": format_clp,
             "format_datetime": format_datetime,

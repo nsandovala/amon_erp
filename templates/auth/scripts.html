@@ -1,0 +1,5 @@
+{% if clerk_domain %}
+<script defer crossorigin="anonymous" src="https://{{ clerk_domain }}/npm/@clerk/ui@1/dist/ui.browser.js"></script>
+<script defer crossorigin="anonymous" data-clerk-publishable-key="{{ clerk_publishable_key }}" src="https://{{ clerk_domain }}/npm/@clerk/clerk-js@6/dist/clerk.browser.js"></script>
+<script defer src="{{ url_for('static', filename='js/auth.js') }}"></script>
+{% endif %}

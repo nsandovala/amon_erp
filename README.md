@@ -45,6 +45,49 @@ Aplicación local-first para controlar las finanzas del food truck The Best Burg
 
 ## Instalación en macOS
 
+### Auth Foundation (Clerk + Flask)
+
+Clerk verifica identidad con `authenticate_request()` en cada petición y Flask
+expone `g.user_id`. Las rutas del ERP requieren además que el identificador esté
+en `AMON_ALLOWED_USER_IDS`. Registrarse no otorga acceso. Esta lista local es una
+barrera inicial; la matriz RBAC `owner`, `manager`, `operator` y
+`accountant_readonly` queda pendiente. No se utilizan roles de Clerk.
+
+La clave de sesión se lee desde `SECRET_KEY`. Por compatibilidad con
+instalaciones anteriores también se acepta `TBB_SECRET_KEY`. Si ninguna está
+definida en desarrollo local, se utiliza `instance/.secret_key`, ignorado por Git.
+En producción `SECRET_KEY` debe definirse mediante variables de entorno.
+
+Configura localmente `.env.local` (ignorado por Git) con `CLERK_PUBLISHABLE_KEY`,
+`CLERK_SECRET_KEY`, `CLERK_AUTHORIZED_PARTIES` y `AMON_ALLOWED_USER_IDS`.
+Las variables exportadas tienen prioridad sobre `.env.local` y `.env`.
+No publiques ni compartas la clave secreta.
+
+- `CLERK_AUTHORIZED_PARTIES`: orígenes separados por coma; por defecto
+  `http://127.0.0.1:5000,http://localhost:5000`. Usa los orígenes exactos del
+  despliegue cuando corresponda.
+- `AMON_ALLOWED_USER_IDS`: identificadores Clerk aprobados, separados por coma.
+  Por defecto está vacía y ningún usuario entra al ERP.
+
+Tras iniciar Flask, visita `/auth` y selecciona **Crear cuenta**. Después de
+verificar la cuenta aparecerá el control de perfil. La pantalla muestra el
+identificador de la cuenta para que el administrador lo incorpore a la lista
+local y reinicie Flask. Luego selecciona **Entrar al ERP**.
+
+La interfaz usa ClerkJS por CDN en Jinja; no requiere npm ni un frontend SPA.
+Sin claves válidas el servidor deniega acceso (503). Los tests financieros usan
+un bypass explícito permitido únicamente con `TESTING=True`; los tests de auth
+usan el SDK real con JWT firmados localmente, sin red ni credenciales reales.
+
+CLI: `clerk auth login`, `clerk link --app app_3K4HtClnINVWtDhLt3p3qiC3I8F`
+y `clerk doctor`. `clerk init` no detecta Flask: rechazar la creación de otro
+proyecto. El diagnóstico del CLI no sustituye las pruebas Flask.
+
+Referencias: [SDK Python](https://github.com/clerk/clerk-sdk-python) y
+[ClerkJS mediante script](https://clerk.com/docs/js-frontend/getting-started/quickstart).
+
+### Entorno Python
+
 1. Verificar Python 3.12:
 
 ```bash

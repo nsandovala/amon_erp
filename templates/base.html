@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
     <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+    {% include 'auth/scripts.html' %}
   </head>
   <body>
     <div class="app-shell">
@@ -53,6 +54,7 @@
         </nav>
 
         <div class="sidebar-foot">
+          {% include 'auth/controls.html' %}
           <form action="{{ url_for('backup') }}" method="post" class="backup-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button class="button button-secondary backup-button" type="submit">
