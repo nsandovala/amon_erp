@@ -11,3 +11,6 @@ backups/*.db
 !.env.example
 .clerk/
 .env.local
+# Agent-installed external skills
+.agents/skills/
+skills-lock.json

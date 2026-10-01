@@ -32,7 +32,7 @@ Aplicación Flask para controlar las finanzas del food truck The Best Burger. Us
 ## Decisiones relevantes
 
 - El dinero se guarda siempre como enteros en pesos chilenos, sin floats.
-- Las fechas se capturan como `DD-MM-YYYY` y las horas como `HH:mm` en formato 24 horas.
+- Los formularios usan controles nativos de fecha y hora; las vistas de lectura muestran fechas como `DD-MM-YYYY` y horas en formato 24 horas.
 - Las fechas se tratan como hora local de `America/Santiago`.
 - `Archivar` conserva el registro histórico.
 - `Eliminar` no borra físicamente: marca `deleted_at`, excluye el registro de cálculos y lo mueve a Papelera.
@@ -251,7 +251,11 @@ La migración de datos SQLite a Neon también está pendiente. Una fase separada
 
 ```bash
 python -m pytest -q
+scripts/qa.sh --quick
+scripts/qa.sh --full
 ```
+
+`--quick` ejecuta tests, `compileall` y `git diff --check`. `--full` agrega `db-check`, `db-counts` y un Gunicorn temporal contra `/health`. Ningún modo carga datos de demostración, reinicia ni elimina la base de datos.
 
 Validaciones cubiertas:
 

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Ventas · TBB Finanzas{% endblock %}
+{% block title %}Ventas · AMON ERP{% endblock %}
 {% block heading %}Ventas{% endblock %}
 {% block page_description %}<p class="page-description">Registra ingresos y revisa el detalle del periodo seleccionado.</p>{% endblock %}
 
@@ -46,11 +46,11 @@
               <td data-label="Fecha">{{ sale.occurred_at|dt }}</td><td data-label="Descripción"><strong>{{ sale.description or 'Venta' }}</strong></td><td data-label="Pago">{{ payment_labels[sale.payment_method] }}</td><td data-label="Canal">{{ channel_labels[sale.channel] }}</td><td data-label="Monto" class="amount-green amount-cell financial-amount">{{ sale.amount|clp }}</td><td data-label="Estado"><span class="status {{ sale.status }}">{{ status_labels[sale.status] }}</span></td>
               <td data-label="Acciones" class="actions">
                 <a class="button button-compact button-secondary" href="{{ url_for('sales.edit', sale_id=sale.id) }}">Editar</a>
-                <details class="action-menu"><summary aria-label="Más acciones para {{ sale.description or 'venta' }}">⋯</summary><div>
+                <div class="action-menu" data-action-menu><button class="action-menu-trigger" type="button" aria-label="Más acciones para {{ sale.description or 'venta' }}" aria-expanded="false" data-action-menu-trigger>⋯</button><div class="action-menu-popover" data-action-menu-popover hidden>
                   <a href="{{ url_for('sales.detail', sale_id=sale.id) }}">Ver detalle</a>
                   {% if sale.status == 'active' %}<form method="post" action="{{ url_for('sales.archive', sale_id=sale.id) }}" data-confirm="¿Archivar esta venta?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Archivar</button></form>{% endif %}
                   <form method="post" action="{{ url_for('sales.delete', sale_id=sale.id) }}" data-delete-form data-delete-kind="Venta" data-delete-description="{{ sale.description or 'Venta' }}" data-delete-date="{{ sale.occurred_at|dt }}" data-delete-amount="{{ sale.amount|clp }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="danger-text" type="submit">Eliminar</button></form>
-                </div></details>
+                </div></div>
               </td>
             </tr>
           {% endfor %}

@@ -13,7 +13,7 @@
 
 ## Tests
 
-- **130 pruebas verdes**.
+- **147 pruebas verdes**.
 - Suite: pytest.
 
 ## Funcionalidades entregadas en F0
@@ -53,6 +53,19 @@
 - Smoke Neon de staging/desarrollo completado el 2026-10-01: conexión y `SELECT 1` correctos; se crearon `audit_logs`, `expenses`, `sales` y `work_sessions` sobre una base vacía; `db-check` y `/health` correctos; conteos iniciales en cero.
 - La variable local tiene un valor `channel_binding` concatenado accidentalmente. El smoke usó `require` solo en memoria; `.env.local` debe corregirse antes del uso normal y permanece fuera de Git.
 
+## F1.1.1 QA hardening implementado
+
+- Los filtros de fecha de ventas y gastos enlazan valores `datetime` tipados y usan un límite final exclusivo.
+- Los formularios de creación y edición usan controles nativos de fecha y hora; las vistas de lectura conservan formato chileno.
+- La jornada abierta ofrece una acción directa para llegar al cierre sin alterar sus reglas financieras.
+- `scripts/qa.sh --quick` y `scripts/qa.sh --full` automatizan validaciones no destructivas para SQLite y PostgreSQL.
+
+## F1.1.2 pulido final de UI implementado
+
+- Las horas editables usan un control determinista `HH:mm`; las fechas conservan controles nativos.
+- Los menús secundarios de tablas flotan fuera de contenedores con scroll y se ajustan a los límites del viewport.
+- La metadata y navegación identifican el producto como AMON ERP y el contexto activo como The Best Burger.
+
 ## Limitaciones actuales
 
 - No multiempresa.
@@ -72,7 +85,7 @@
 
 - Rama activa: `feature/f1.1-production-foundation`.
 - Baseline: `310f22d merge: integrate Clerk auth foundation` con 111 tests.
-- F1.1 agrega 19 tests; total actual: 130.
+- F1.1, F1.1.1 y F1.1.2 agregan 36 tests; total actual: 147.
 - Hay cambios de F1.1 sin commit durante esta tarea.
 
 ## Próxima fase planificada

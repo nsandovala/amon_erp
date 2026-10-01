@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Historial · TBB Finanzas{% endblock %}
+{% block title %}Historial financiero · AMON ERP{% endblock %}
 {% block heading %}Historial financiero{% endblock %}
 {% block page_description %}<p class="page-description">Consulta ventas, gastos e inversiones desde un único registro.</p>{% endblock %}
 
@@ -37,11 +37,11 @@
         <tr class="row-{{ item.kind }} mobile-record-card"><td data-label="Fecha">{{ item.occurred_at|dt }}</td><td data-label="Tipo">{% if item.kind == 'sale' %}{{ item.label }}{% else %}<span class="movement-type {{ 'investment' if item.kind == 'investment' else 'operational' }}">{{ item.label }}</span>{% endif %}</td><td data-label="Descripción"><strong>{{ item.description }}</strong></td><td data-label="Categoría">{{ channel_labels.get(item.category, item.category) if item.kind == 'sale' else item.category }}</td><td data-label="Medio de pago">{{ payment_labels[item.payment_method] }}</td><td data-label="Monto" class="{{ 'amount-green' if item.kind == 'sale' else 'amount-amber' if item.kind == 'investment' else 'amount-red' }} amount-cell financial-amount">{{ item.amount|clp }}</td><td data-label="Estado"><span class="status {{ item.status }}">{{ status_labels[item.status] }}</span></td>
           <td data-label="Acciones" class="actions">
             {% if item.kind == 'sale' %}<a class="button button-compact button-secondary" href="{{ url_for('sales.edit', sale_id=item.id) }}">Editar</a>{% else %}<a class="button button-compact button-secondary" href="{{ url_for('expenses.edit', expense_id=item.id) }}">Editar</a>{% endif %}
-            <details class="action-menu"><summary aria-label="Más acciones para {{ item.description }}">⋯</summary><div>
+            <div class="action-menu" data-action-menu><button class="action-menu-trigger" type="button" aria-label="Más acciones para {{ item.description }}" aria-expanded="false" data-action-menu-trigger>⋯</button><div class="action-menu-popover" data-action-menu-popover hidden>
               {% if item.kind == 'sale' %}<a href="{{ url_for('sales.detail', sale_id=item.id) }}">Ver detalle</a>{% if item.status == 'active' %}<form method="post" action="{{ url_for('sales.archive', sale_id=item.id) }}" data-confirm="¿Archivar este movimiento?">{% endif %}{% else %}<a href="{{ url_for('expenses.detail', expense_id=item.id) }}">Ver detalle</a>{% if item.status == 'active' %}<form method="post" action="{{ url_for('expenses.archive', expense_id=item.id) }}" data-confirm="¿Archivar este movimiento?">{% endif %}{% endif %}
               {% if item.status == 'active' %}<input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Archivar</button></form>{% endif %}
               {% if item.kind == 'sale' %}<form method="post" action="{{ url_for('sales.delete', sale_id=item.id) }}" data-delete-form data-delete-kind="Venta" data-delete-description="{{ item.description }}" data-delete-date="{{ item.occurred_at|dt }}" data-delete-amount="{{ item.amount|clp }}">{% else %}<form method="post" action="{{ url_for('expenses.delete', expense_id=item.id) }}" data-delete-form data-delete-kind="{{ item.label }}" data-delete-description="{{ item.description }}" data-delete-date="{{ item.occurred_at|dt }}" data-delete-amount="{{ item.amount|clp }}">{% endif %}<input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="danger-text" type="submit">Eliminar</button></form>
-            </div></details>
+            </div></div>
           </td>
         </tr>
       {% endfor %}

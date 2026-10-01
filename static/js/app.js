@@ -144,38 +144,14 @@ function bindConfirmations() {
   });
 }
 
-function digitsOnly(value) {
-  return value.replace(/\D/g, "");
-}
-
-function formatDateInput(value) {
-  const digits = digitsOnly(value).slice(0, 8);
-  const parts = [];
-  if (digits.slice(0, 2)) parts.push(digits.slice(0, 2));
-  if (digits.slice(2, 4)) parts.push(digits.slice(2, 4));
-  if (digits.slice(4, 8)) parts.push(digits.slice(4, 8));
-  return parts.join("-");
-}
-
 function formatTimeInput(value) {
-  const digits = digitsOnly(value).slice(0, 4);
+  const digits = value.replace(/\D/g, "").slice(0, 4);
   if (digits.length <= 2) return digits;
-  return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
 }
 
-function bindDateTimeMasks() {
-  document.querySelectorAll('input[placeholder="DD-MM-YYYY"]').forEach((input) => {
-    input.addEventListener("input", () => {
-      input.value = formatDateInput(input.value);
-      input.setCustomValidity("");
-    });
-    input.addEventListener("blur", () => {
-      const valid = /^\d{2}-\d{2}-\d{4}$/.test(input.value);
-      input.setCustomValidity(valid ? "" : "Usa DD-MM-YYYY con año de cuatro dígitos.");
-    });
-  });
-
-  document.querySelectorAll('input[placeholder="HH:mm"]').forEach((input) => {
+function bindTimeInputs() {
+  document.querySelectorAll("[data-time-input]").forEach((input) => {
     input.addEventListener("input", () => {
       input.value = formatTimeInput(input.value);
       input.setCustomValidity("");
@@ -215,11 +191,69 @@ function bindDeleteDialog() {
 }
 
 function bindActionMenus() {
-  document.addEventListener("click", (event) => {
-    document.querySelectorAll(".action-menu[open]").forEach((menu) => {
-      if (!menu.contains(event.target)) menu.removeAttribute("open");
+  let activeMenu = null;
+
+  const closeMenu = (restoreFocus = false) => {
+    if (!activeMenu) return;
+    const { trigger, popover, placeholder } = activeMenu;
+    popover.hidden = true;
+    popover.removeAttribute("style");
+    placeholder.replaceWith(popover);
+    trigger.setAttribute("aria-expanded", "false");
+    activeMenu = null;
+    if (restoreFocus) trigger.focus();
+  };
+
+  document.querySelectorAll("[data-action-menu]").forEach((menu) => {
+    const trigger = menu.querySelector("[data-action-menu-trigger]");
+    const popover = menu.querySelector("[data-action-menu-popover]");
+    if (!trigger || !popover) return;
+
+    trigger.addEventListener("click", () => {
+      if (activeMenu?.trigger === trigger) {
+        closeMenu();
+        return;
+      }
+      closeMenu();
+
+      const placeholder = document.createComment("action-menu-popover");
+      popover.before(placeholder);
+      document.body.append(popover);
+      popover.hidden = false;
+      popover.style.visibility = "hidden";
+
+      const triggerRect = trigger.getBoundingClientRect();
+      const popoverRect = popover.getBoundingClientRect();
+      const viewportPadding = 8;
+      const gap = 6;
+      const left = Math.min(
+        Math.max(viewportPadding, triggerRect.right - popoverRect.width),
+        window.innerWidth - viewportPadding - popoverRect.width,
+      );
+      const below = triggerRect.bottom + gap;
+      const top = below + popoverRect.height <= window.innerHeight - viewportPadding
+        ? below
+        : Math.max(viewportPadding, triggerRect.top - gap - popoverRect.height);
+
+      popover.style.left = `${left}px`;
+      popover.style.top = `${top}px`;
+      popover.style.maxHeight = `${window.innerHeight - viewportPadding * 2}px`;
+      popover.style.visibility = "visible";
+      trigger.setAttribute("aria-expanded", "true");
+      activeMenu = { trigger, popover, placeholder };
     });
   });
+
+  document.addEventListener("click", (event) => {
+    if (!activeMenu) return;
+    if (activeMenu.trigger.contains(event.target) || activeMenu.popover.contains(event.target)) return;
+    closeMenu();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && activeMenu) closeMenu(true);
+  });
+  window.addEventListener("resize", () => closeMenu());
+  window.addEventListener("scroll", () => closeMenu(), true);
 }
 
 function bindExpenseCategories() {
@@ -266,7 +300,7 @@ function santiagoNowParts() {
   const parts = Object.fromEntries(formatter.formatToParts(now).map((part) => [part.type, part.value]));
   const hour = parts.hour === "24" ? "00" : parts.hour;
   return {
-    date: `${parts.day}-${parts.month}-${parts.year}`,
+    date: `${parts.year}-${parts.month}-${parts.day}`,
     time: `${hour}:${parts.minute}`,
   };
 }
@@ -309,7 +343,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindMobileNavigation();
   bindCustomPeriodFilter();
   bindConfirmations();
-  bindDateTimeMasks();
+  bindTimeInputs();
   bindDeleteDialog();
   bindActionMenus();
   bindExpenseCategories();

@@ -220,7 +220,7 @@ def format_time(value):
 
 
 def form_date(value):
-    return value.strftime("%d-%m-%Y") if value else ""
+    return value.isoformat() if value else ""
 
 
 def form_time(value):

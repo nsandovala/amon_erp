@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Jornadas · TBB Finanzas{% endblock %}
+{% block title %}Jornadas · AMON ERP{% endblock %}
 {% block heading %}Jornadas de trabajo{% endblock %}
 {% block page_description %}<p class="page-description">Abre, controla y cierra cada jornada con trazabilidad de caja.</p>{% endblock %}
 
@@ -11,7 +11,7 @@
   <a class="button button-compact button-secondary" href="#session-history">Revisar asociación histórica</a>
 </div>
 {% endif %}
-<section class="section-card page-form">
+<section class="section-card page-form" id="current-session-action">
   <div class="section-heading">
     <div><p class="section-kicker">Operación actual</p><h2>{{ 'Cerrar jornada' if current_session else 'Abrir jornada' }}</h2></div>
   </div>
@@ -115,11 +115,15 @@
             </td>
             <td data-label="Estado"><span class="status {{ item.status_key }}">{{ item.status_label }}</span></td>
             <td data-label="Acciones" class="actions">
-              <a class="button button-compact button-secondary" href="{{ url_for('sessions.edit', session_id=session.id) }}">Editar</a>
+              {% if session.status == 'open' %}
+                <a class="button button-compact button-blue" href="#current-session-action">Cerrar jornada</a>
+              {% else %}
+                <a class="button button-compact button-secondary" href="{{ url_for('sessions.edit', session_id=session.id) }}">Editar</a>
+              {% endif %}
               {% if session.status != 'open' %}
-                <details class="action-menu">
-                  <summary aria-label="Más acciones">⋯</summary>
-                  <div>
+                <div class="action-menu" data-action-menu>
+                  <button class="action-menu-trigger" type="button" aria-label="Más acciones" aria-expanded="false" data-action-menu-trigger>⋯</button>
+                  <div class="action-menu-popover" data-action-menu-popover hidden>
                     <a href="{{ url_for('sessions.associate_movements', session_id=session.id) }}">Asociar movimientos</a>
                     {% if session.status == 'closed' %}
                       <form method="post" action="{{ url_for('sessions.archive', session_id=session.id) }}" data-confirm="¿Archivar esta jornada cerrada?">
@@ -132,7 +136,7 @@
                       <button class="danger-text" type="submit">Eliminar</button>
                     </form>
                   </div>
-                </details>
+                </div>
               {% endif %}
             </td>
           </tr>
