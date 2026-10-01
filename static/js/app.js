@@ -26,8 +26,9 @@ function setChartEmpty(canvas, empty) {
 
 function buildCharts() {
   if (!window.Chart) return;
-  Chart.defaults.color = "#9B99A3";
+  Chart.defaults.color = "#817E89";
   Chart.defaults.borderColor = "rgba(255,255,255,.08)";
+  Chart.defaults.font.family = 'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif';
 
   const dailyElement = document.getElementById("dailyChart");
   const dailyData = parseChartData(dailyElement);
@@ -40,18 +41,23 @@ function buildCharts() {
         data: {
           labels: dailyData.map((item) => item.label),
           datasets: [
-            { label: "Ventas", data: dailyData.map((item) => item.sales), backgroundColor: "rgba(69,217,151,.78)" },
-            { label: "Gastos operacionales", data: dailyData.map((item) => item.expenses), backgroundColor: "rgba(255,98,104,.74)" }
+            { label: "Ventas", data: dailyData.map((item) => item.sales), backgroundColor: "rgba(66,216,148,.72)", borderRadius: 4, maxBarThickness: 24 },
+            { label: "Gastos operacionales", data: dailyData.map((item) => item.expenses), backgroundColor: "rgba(255,98,104,.68)", borderRadius: 4, maxBarThickness: 24 }
           ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatMoney(ctx.raw)}` } } },
+          interaction: { intersect: false, mode: "index" },
+          plugins: {
+            legend: { position: "bottom", align: "start", labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 18 } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatMoney(ctx.raw)}` } }
+          },
           scales: {
+            x: { grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 10, maxRotation: 0 } },
             y: {
               beginAtZero: true,
-              ticks: { callback: (value) => formatMoney(value) }
+              ticks: { maxTicksLimit: 6, callback: (value) => formatMoney(value) }
             }
           }
         }
@@ -71,17 +77,60 @@ function buildCharts() {
           labels: categoryData.map((item) => item.category),
           datasets: [{
             data: categoryData.map((item) => item.amount),
-            backgroundColor: ["#FF6268", "#F3B94F", "#68CFF4", "#45D997", "#8B78FF", "#C6C1D7", "#D986A1"]
+            backgroundColor: ["#FF6268", "#F0B84A", "#66CFF2", "#42D894", "#8D7CFF", "#B4B1BC", "#D986A1"],
+            borderColor: "#15161C",
+            borderWidth: 3,
+            hoverOffset: 3
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatMoney(ctx.raw)}` } } }
+          cutout: "66%",
+          plugins: {
+            legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 14 } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatMoney(ctx.raw)}` } }
+          }
         }
       });
     }
   }
+}
+
+function bindMobileNavigation() {
+  const openButton = document.querySelector("[data-nav-open]");
+  const closeButtons = document.querySelectorAll("[data-nav-close]");
+  const navigation = document.getElementById("appNavigation");
+  if (!openButton || !navigation) return;
+
+  const setOpen = (open) => {
+    document.body.classList.toggle("nav-open", open);
+    openButton.setAttribute("aria-expanded", String(open));
+    if (open) navigation.querySelector("a")?.focus();
+  };
+
+  openButton.addEventListener("click", () => setOpen(true));
+  closeButtons.forEach((button) => button.addEventListener("click", () => setOpen(false)));
+  navigation.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setOpen(false)));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && document.body.classList.contains("nav-open")) {
+      setOpen(false);
+      openButton.focus();
+    }
+  });
+}
+
+function bindCustomPeriodFilter() {
+  const toggle = document.querySelector("[data-custom-filter-toggle]");
+  const form = document.querySelector("[data-custom-filter]");
+  if (!toggle || !form) return;
+
+  toggle.addEventListener("click", () => {
+    const willOpen = form.hidden;
+    form.hidden = !willOpen;
+    toggle.setAttribute("aria-expanded", String(willOpen));
+    if (willOpen) form.querySelector("input[type='date']")?.focus();
+  });
 }
 
 function bindConfirmations() {
@@ -173,10 +222,98 @@ function bindActionMenus() {
   });
 }
 
+function bindExpenseCategories() {
+  const catalogElement = document.getElementById("expenseCategoryCatalog");
+  if (!catalogElement) return;
+
+  let catalog;
+  try {
+    catalog = JSON.parse(catalogElement.textContent || "{}");
+  } catch (_error) {
+    return;
+  }
+
+  document.querySelectorAll("[data-expense-category-select]").forEach((categorySelect) => {
+    const form = categorySelect.closest("form");
+    const typeSelect = form?.querySelector("[data-expense-type-select]");
+    if (!typeSelect) return;
+
+    typeSelect.addEventListener("change", () => {
+      const categories = catalog[typeSelect.value] || [];
+      const currentCategory = categorySelect.value;
+      categorySelect.replaceChildren(...categories.map((category) => {
+        const option = document.createElement("option");
+        option.value = category;
+        option.textContent = category;
+        return option;
+      }));
+      categorySelect.value = categories.includes(currentCategory) ? currentCategory : (categories[0] || "");
+    });
+  });
+}
+
+function santiagoNowParts() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("es-CL", {
+    timeZone: "America/Santiago",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(now).map((part) => [part.type, part.value]));
+  const hour = parts.hour === "24" ? "00" : parts.hour;
+  return {
+    date: `${parts.day}-${parts.month}-${parts.year}`,
+    time: `${hour}:${parts.minute}`,
+  };
+}
+
+function bindFillNow() {
+  document.querySelectorAll("[data-fill-now]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const target = button.dataset.fillTarget;
+      if (!target) return;
+      const form = button.closest("form");
+      if (!form) return;
+      const dateInput = form.querySelector(`input[name="${target}_date"]`);
+      const timeInput = form.querySelector(`input[name="${target}_time"]`);
+      const now = santiagoNowParts();
+      if (dateInput) {
+        dateInput.value = now.date;
+        dateInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      if (timeInput) {
+        timeInput.value = now.time;
+        timeInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+  });
+}
+
+function bindHistoryPeriod() {
+  const periodSelect = document.querySelector("[data-history-period]");
+  const customFields = document.querySelector("[data-history-custom-period]");
+  if (!periodSelect || !customFields) return;
+
+  const updateVisibility = () => {
+    customFields.hidden = periodSelect.value !== "custom";
+  };
+  periodSelect.addEventListener("change", updateVisibility);
+  updateVisibility();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  bindMobileNavigation();
+  bindCustomPeriodFilter();
   bindConfirmations();
   bindDateTimeMasks();
   bindDeleteDialog();
   bindActionMenus();
+  bindExpenseCategories();
+  bindHistoryPeriod();
+  bindFillNow();
   buildCharts();
 });

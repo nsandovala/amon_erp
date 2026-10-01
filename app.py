@@ -78,6 +78,7 @@ def create_app(test_config=None):
             "form_date": form_date,
             "form_time": form_time,
             "format_duration": format_duration,
+            "now_santiago": now_santiago,
         }
 
     @app.template_filter("clp")
@@ -184,10 +185,23 @@ def form_time(value):
     return value.strftime("%H:%M") if value else ""
 
 
-def format_duration(minutes):
-    total = max(int(minutes or 0), 0)
-    hours, remaining_minutes = divmod(total, 60)
-    return f"{hours} h {remaining_minutes:02d} min"
+def format_duration(seconds):
+    total = max(int(seconds or 0), 0)
+    days, remainder = divmod(total, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, secs = divmod(remainder, 60)
+    parts = []
+    if days:
+        parts.append(f"{days} d")
+    if hours:
+        parts.append(f"{hours} h")
+    if minutes:
+        parts.append(f"{minutes} min")
+    if secs:
+        parts.append(f"{secs} s")
+    if not parts:
+        parts.append("0 s")
+    return " ".join(parts)
 
 
 def seed_demo_data():

@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
+from math import ceil
 
 from sqlalchemy import func
 
@@ -7,7 +8,10 @@ from models import db_session, now_santiago
 from models.expense import Expense
 from models.sale import Sale
 from models.work_session import WorkSession
-from services.work_sessions import calculate_work_session_metrics
+from services.work_sessions import ANOMALOUS_DURATION_SECONDS, calculate_work_session_metrics
+
+
+MIN_VALID_SESSIONS_FOR_ESTIMATE = 3
 
 
 ENERGY_CATEGORIES = {"Gas", "Luz", "Agua", "Combustible"}
@@ -82,10 +86,8 @@ def calculate_metrics(start_dt, end_dt):
     total_result = operating_profit - investments
     average_ticket = round(total_sales / sales_count) if sales_count else 0
     operating_margin = round((operating_profit / total_sales) * 100, 1) if total_sales else 0
-    worked_hours = round(
-        sum(calculate_work_session_metrics(session).duration_minutes for session in sessions) / 60,
-        1,
-    )
+    worked_seconds = sum(calculate_work_session_metrics(session).duration_seconds for session in sessions)
+    worked_hours = round(worked_seconds / 3600, 1)
     opening_cash = sum(session.opening_cash for session in sessions)
     cash_balance = opening_cash + cash_sales - cash_operational_expenses
     total_flow = total_sales - operational_expenses - investments
@@ -100,6 +102,7 @@ def calculate_metrics(start_dt, end_dt):
         "sales_count": sales_count,
         "operating_margin": operating_margin,
         "worked_hours": worked_hours,
+        "worked_seconds": worked_seconds,
         "cash_balance": cash_balance,
         "estimated_cash": cash_balance,
         "total_flow": total_flow,
@@ -186,6 +189,73 @@ def latest_movements(limit=10):
             "tone": "negative" if expense.expense_type == "operational" else "investment",
         })
     return sorted(movements, key=lambda item: item["occurred_at"], reverse=True)[:limit]
+
+
+def calculate_return_estimate():
+    sales_total = db_session.query(func.coalesce(func.sum(Sale.amount), 0)).filter(
+        Sale.status == "active", Sale.deleted_at.is_(None)
+    ).scalar()
+    operational_total = db_session.query(func.coalesce(func.sum(Expense.amount), 0)).filter(
+        Expense.status == "active",
+        Expense.deleted_at.is_(None),
+        Expense.expense_type == "operational",
+    ).scalar()
+    investment_total = db_session.query(func.coalesce(func.sum(Expense.amount), 0)).filter(
+        Expense.status == "active",
+        Expense.deleted_at.is_(None),
+        Expense.expense_type == "investment",
+    ).scalar()
+
+    operating_profit = int(sales_total) - int(operational_total)
+    investment_total = int(investment_total)
+    capital_recovered = max(operating_profit, 0)
+    capital_pending = max(investment_total - capital_recovered, 0)
+
+    if investment_total > 0:
+        recovery_percentage = min(round(capital_recovered * 100 / investment_total, 1), 100.0)
+    else:
+        recovery_percentage = 0.0
+
+    valid_sessions = [
+        session
+        for session in db_session.query(WorkSession)
+        .filter(WorkSession.status == "closed", WorkSession.deleted_at.is_(None))
+        .all()
+        if calculate_work_session_metrics(session).duration_seconds <= ANOMALOUS_DURATION_SECONDS
+    ]
+    valid_days_set = {session.business_date for session in valid_sessions}
+    valid_days = len(valid_days_set)
+    valid_sessions_count = len(valid_sessions)
+
+    can_estimate = (
+        investment_total > 0
+        and operating_profit > 0
+        and valid_days > 0
+        and valid_sessions_count >= MIN_VALID_SESSIONS_FOR_ESTIMATE
+    )
+
+    daily_average = 0
+    estimated_days_remaining = None
+    if can_estimate and valid_days > 0:
+        daily_average = operating_profit // valid_days
+        if capital_pending == 0:
+            estimated_days_remaining = 0
+        elif daily_average > 0:
+            estimated_days_remaining = ceil(capital_pending / daily_average)
+        else:
+            can_estimate = False
+
+    return {
+        "investment_total": investment_total,
+        "capital_recovered": capital_recovered,
+        "capital_pending": capital_pending,
+        "recovery_percentage": recovery_percentage,
+        "daily_average": daily_average,
+        "estimated_days_remaining": estimated_days_remaining,
+        "valid_sessions_count": valid_sessions_count,
+        "valid_days": valid_days,
+        "can_estimate": can_estimate,
+    }
 
 
 def monthly_summary(year=None):

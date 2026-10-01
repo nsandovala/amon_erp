@@ -6,6 +6,9 @@ from models.sale import Sale
 from services.audit import create_audit_log
 
 
+ANOMALOUS_DURATION_SECONDS = 24 * 3600
+
+
 @dataclass(frozen=True)
 class WorkSessionMetrics:
     total_sales: int
@@ -16,9 +19,14 @@ class WorkSessionMetrics:
     expected_cash: int
     counted_cash: int | None
     cash_difference: int | None
+    duration_seconds: int
     duration_minutes: int
     cash_inflows: int = 0
     cash_withdrawals: int = 0
+
+    @property
+    def is_anomalous_duration(self) -> bool:
+        return self.duration_seconds > ANOMALOUS_DURATION_SECONDS
 
 
 def calculate_work_session_metrics(work_session):
@@ -55,7 +63,8 @@ def calculate_work_session_metrics(work_session):
     counted_cash = int(counted_cash) if counted_cash is not None else None
     cash_difference = counted_cash - expected_cash if counted_cash is not None else None
     end = work_session.closed_at or now_santiago()
-    duration_minutes = max(int((end - work_session.opened_at).total_seconds() // 60), 0)
+    duration_seconds = max(int((end - work_session.opened_at).total_seconds()), 0)
+    duration_minutes = duration_seconds // 60
 
     return WorkSessionMetrics(
         total_sales=total_sales,
@@ -66,6 +75,7 @@ def calculate_work_session_metrics(work_session):
         expected_cash=expected_cash,
         counted_cash=counted_cash,
         cash_difference=cash_difference,
+        duration_seconds=duration_seconds,
         duration_minutes=duration_minutes,
         cash_inflows=cash_inflows,
         cash_withdrawals=cash_withdrawals,
@@ -82,6 +92,29 @@ def session_balance_status(work_session, metrics):
     if metrics.cash_difference > 0:
         return "surplus", "Cerrada con sobrante"
     return "shortage", "Cerrada con faltante"
+
+
+def count_unassociated_active_movements():
+    sales_count = (
+        db_session.query(Sale)
+        .filter(
+            Sale.work_session_id.is_(None),
+            Sale.status == "active",
+            Sale.deleted_at.is_(None),
+        )
+        .count()
+    )
+    expenses_count = (
+        db_session.query(Expense)
+        .filter(
+            Expense.work_session_id.is_(None),
+            Expense.status == "active",
+            Expense.deleted_at.is_(None),
+            Expense.expense_type == "operational",
+        )
+        .count()
+    )
+    return sales_count + expenses_count
 
 
 def historical_movement_preview(work_session):

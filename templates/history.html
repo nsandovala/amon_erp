@@ -1,89 +1,53 @@
 {% extends "base.html" %}
 {% block title %}Historial · TBB Finanzas{% endblock %}
 {% block heading %}Historial financiero{% endblock %}
+{% block page_description %}<p class="page-description">Consulta ventas, gastos e inversiones desde un único registro.</p>{% endblock %}
 
 {% block content %}
-<section class="panel">
-  <form class="filter-grid" method="get">
-    <input name="q" placeholder="Buscar texto" value="{{ request.args.get('q', '') }}">
-    <select name="type">
-      <option value="all" {{ 'selected' if request.args.get('type', 'all') == 'all' }}>Todos</option>
-      <option value="sale" {{ 'selected' if request.args.get('type') == 'sale' }}>Ventas</option>
-      <option value="expense" {{ 'selected' if request.args.get('type') == 'expense' }}>Gastos</option>
-      <option value="investment" {{ 'selected' if request.args.get('type') == 'investment' }}>Inversiones</option>
-    </select>
-    <select name="payment_method">
-      <option value="">Todos los pagos</option>
-      {% for key in payment_methods %}<option value="{{ key }}" {{ 'selected' if request.args.get('payment_method') == key }}>{{ payment_labels[key] }}</option>{% endfor %}
-    </select>
-    <select name="category">
-      <option value="">Todas las categorías</option>
-      {% for category in categories %}<option value="{{ category }}" {{ 'selected' if request.args.get('category') == category }}>{{ category }}</option>{% endfor %}
-    </select>
-    <select name="status">
-      <option value="active" {{ 'selected' if request.args.get('status', 'active') == 'active' }}>Activos</option>
-      <option value="archived" {{ 'selected' if request.args.get('status') == 'archived' }}>Archivados</option>
-    </select>
-    <button class="button" type="submit">Filtrar</button>
+<section class="section-card">
+  <div class="section-heading"><div><p class="section-kicker">Búsqueda</p><h2>Filtrar movimientos</h2></div></div>
+  {% include "partials/errors.html" %}
+  <form class="filter-grid history-filter-grid" method="get" aria-label="Filtros del historial">
+    <label class="history-search">Buscar<input name="q" placeholder="Descripción, nota o categoría" value="{{ filters.search }}"></label>
+    <label>Tipo<select name="type"><option value="all" {{ 'selected' if filters.movement_type == 'all' }}>Todos</option><option value="sale" {{ 'selected' if filters.movement_type == 'sale' }}>Ventas</option><option value="expense" {{ 'selected' if filters.movement_type == 'expense' }}>Gasto operacional</option><option value="investment" {{ 'selected' if filters.movement_type == 'investment' }}>Inversión</option></select></label>
+    <label>Periodo<select name="period" data-history-period><option value="all" {{ 'selected' if filters.period == 'all' }}>Todo el historial</option><option value="today" {{ 'selected' if filters.period == 'today' }}>Hoy</option><option value="current_week" {{ 'selected' if filters.period == 'current_week' }}>Esta semana</option><option value="current_month" {{ 'selected' if filters.period == 'current_month' }}>Este mes</option><option value="previous_month" {{ 'selected' if filters.period == 'previous_month' }}>Mes anterior</option><option value="custom" {{ 'selected' if filters.period == 'custom' }}>Personalizado</option></select></label>
+    <label>Medio de pago<select name="payment_method"><option value="">Todos los pagos</option>{% for key in payment_methods %}<option value="{{ key }}" {{ 'selected' if filters.payment_method == key }}>{{ payment_labels[key] }}</option>{% endfor %}</select></label>
+    <label>Estado<select name="status"><option value="active" {{ 'selected' if filters.status == 'active' }}>Activos</option><option value="archived" {{ 'selected' if filters.status == 'archived' }}>Archivados</option></select></label>
+    <div class="history-custom-period" data-history-custom-period {{ 'hidden' if filters.period != 'custom' }}>
+      <label>Desde<input type="date" name="start" value="{{ filters.start_value }}"></label>
+      <label>Hasta<input type="date" name="end" value="{{ filters.end_value }}"></label>
+    </div>
+    <div class="history-filter-actions">
+      <button class="button button-secondary" type="submit">Aplicar filtros</button>
+      <a class="button button-muted" href="{{ url_for('history.index') }}">Limpiar filtros</a>
+      <a class="button button-muted" href="{{ export_url }}" title="Compatible con Excel">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+        Exportar CSV
+      </a>
+    </div>
+    <noscript><style>.history-custom-period[hidden] { display: grid !important; }</style></noscript>
   </form>
 </section>
 
-<section class="panel">
-  <div class="table-wrap responsive-table">
-    <table>
-      <thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Categoría</th><th>Medio de pago</th><th class="amount-cell">Monto</th><th>Estado</th><th>Acciones</th></tr></thead>
-      <tbody>
-        {% for item in movements %}
-          <tr class="row-{{ item.kind }}">
-            <td data-label="Fecha">{{ item.occurred_at|dt }}</td>
-            <td data-label="Tipo">{{ item.label }}</td>
-            <td data-label="Descripción"><strong>{{ item.description }}</strong></td>
-            <td data-label="Categoría">{{ item.category_label or item.category }}</td>
-            <td data-label="Medio de pago">{{ payment_labels[item.payment_method] }}</td>
-            <td data-label="Monto" class="{{ 'amount-green' if item.kind == 'sale' else 'amount-amber' if item.kind == 'investment' else 'amount-red' }} amount-cell">{{ item.amount|clp }}</td>
-            <td data-label="Estado"><span class="status {{ item.status }}">{{ status_labels[item.status] }}</span></td>
-            <td data-label="Acciones" class="actions">
-              {% if item.kind == 'sale' %}
-                <a class="button button-compact" href="{{ url_for('sales.edit', sale_id=item.id) }}">Editar</a>
-              {% else %}
-                <a class="button button-compact" href="{{ url_for('expenses.edit', expense_id=item.id) }}">Editar</a>
-              {% endif %}
-              <details class="action-menu">
-                <summary aria-label="Más acciones">⋯</summary>
-                <div>
-                  {% if item.kind == 'sale' %}
-                    <a href="{{ url_for('sales.detail', sale_id=item.id) }}">Ver detalle</a>
-                    {% if item.status == 'active' %}
-                      <form method="post" action="{{ url_for('sales.archive', sale_id=item.id) }}" data-confirm="¿Archivar este movimiento?">
-                    {% endif %}
-                  {% else %}
-                    <a href="{{ url_for('expenses.detail', expense_id=item.id) }}">Ver detalle</a>
-                    {% if item.status == 'active' %}
-                      <form method="post" action="{{ url_for('expenses.archive', expense_id=item.id) }}" data-confirm="¿Archivar este movimiento?">
-                    {% endif %}
-                  {% endif %}
-                  {% if item.status == 'active' %}
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                      <button type="submit">Archivar</button>
-                    </form>
-                  {% endif %}
-                  {% if item.kind == 'sale' %}
-                    <form method="post" action="{{ url_for('sales.delete', sale_id=item.id) }}" data-delete-form data-delete-kind="Venta" data-delete-description="{{ item.description }}" data-delete-date="{{ item.occurred_at|dt }}" data-delete-amount="{{ item.amount|clp }}">
-                  {% else %}
-                    <form method="post" action="{{ url_for('expenses.delete', expense_id=item.id) }}" data-delete-form data-delete-kind="{{ item.label }}" data-delete-description="{{ item.description }}" data-delete-date="{{ item.occurred_at|dt }}" data-delete-amount="{{ item.amount|clp }}">
-                  {% endif %}
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button class="danger-text" type="submit">Eliminar</button>
-                  </form>
-                </div>
-              </details>
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="8">No hay movimientos para estos filtros.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+<section class="section-card">
+  <div class="section-heading"><div><p class="section-kicker">Resultados</p><h2>Movimientos financieros</h2></div><span class="muted">{{ movements|length }} registros</span></div>
+  {% if movements %}
+    <div class="table-wrap responsive-table"><table class="data-table"><thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Categoría</th><th>Medio de pago</th><th class="amount-cell">Monto</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+      {% for item in movements %}
+        <tr class="row-{{ item.kind }} mobile-record-card"><td data-label="Fecha">{{ item.occurred_at|dt }}</td><td data-label="Tipo">{% if item.kind == 'sale' %}{{ item.label }}{% else %}<span class="movement-type {{ 'investment' if item.kind == 'investment' else 'operational' }}">{{ item.label }}</span>{% endif %}</td><td data-label="Descripción"><strong>{{ item.description }}</strong></td><td data-label="Categoría">{{ channel_labels.get(item.category, item.category) if item.kind == 'sale' else item.category }}</td><td data-label="Medio de pago">{{ payment_labels[item.payment_method] }}</td><td data-label="Monto" class="{{ 'amount-green' if item.kind == 'sale' else 'amount-amber' if item.kind == 'investment' else 'amount-red' }} amount-cell financial-amount">{{ item.amount|clp }}</td><td data-label="Estado"><span class="status {{ item.status }}">{{ status_labels[item.status] }}</span></td>
+          <td data-label="Acciones" class="actions">
+            {% if item.kind == 'sale' %}<a class="button button-compact button-secondary" href="{{ url_for('sales.edit', sale_id=item.id) }}">Editar</a>{% else %}<a class="button button-compact button-secondary" href="{{ url_for('expenses.edit', expense_id=item.id) }}">Editar</a>{% endif %}
+            <details class="action-menu"><summary aria-label="Más acciones para {{ item.description }}">⋯</summary><div>
+              {% if item.kind == 'sale' %}<a href="{{ url_for('sales.detail', sale_id=item.id) }}">Ver detalle</a>{% if item.status == 'active' %}<form method="post" action="{{ url_for('sales.archive', sale_id=item.id) }}" data-confirm="¿Archivar este movimiento?">{% endif %}{% else %}<a href="{{ url_for('expenses.detail', expense_id=item.id) }}">Ver detalle</a>{% if item.status == 'active' %}<form method="post" action="{{ url_for('expenses.archive', expense_id=item.id) }}" data-confirm="¿Archivar este movimiento?">{% endif %}{% endif %}
+              {% if item.status == 'active' %}<input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Archivar</button></form>{% endif %}
+              {% if item.kind == 'sale' %}<form method="post" action="{{ url_for('sales.delete', sale_id=item.id) }}" data-delete-form data-delete-kind="Venta" data-delete-description="{{ item.description }}" data-delete-date="{{ item.occurred_at|dt }}" data-delete-amount="{{ item.amount|clp }}">{% else %}<form method="post" action="{{ url_for('expenses.delete', expense_id=item.id) }}" data-delete-form data-delete-kind="{{ item.label }}" data-delete-description="{{ item.description }}" data-delete-date="{{ item.occurred_at|dt }}" data-delete-amount="{{ item.amount|clp }}">{% endif %}<input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="danger-text" type="submit">Eliminar</button></form>
+            </div></details>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody></table></div>
+  {% else %}
+    <div class="empty-state"><strong>Sin movimientos para estos filtros</strong><span>Prueba una búsqueda más amplia o cambia el estado seleccionado.</span></div>
+  {% endif %}
 </section>
 {% endblock %}

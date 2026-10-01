@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Asociar movimientos · TBB Finanzas{% endblock %}
 {% block heading %}Asociar movimientos históricos{% endblock %}
+{% block page_description %}<p class="page-description">Revisa los movimientos elegibles antes de confirmar cualquier asociación.</p>{% endblock %}
 
 {% block content %}
-<section class="panel">
-  <div class="panel-head">
+<section class="section-card">
+  <div class="section-heading">
     <div>
       <h2>Vista previa de jornada {{ work_session.business_date|date_cl }}</h2>
       <p class="muted">{{ work_session.opened_at|dt }} a {{ work_session.closed_at|dt }}</p>
@@ -17,9 +18,9 @@
   <p class="muted">Solo se muestran movimientos activos, no eliminados, sin jornada y dentro del rango de apertura y cierre. Las inversiones nunca se asocian.</p>
 </section>
 
-<section class="panel">
+<section class="section-card">
   <div class="table-wrap responsive-table">
-    <table>
+    <table class="data-table">
       <thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Pago</th><th class="amount-cell">Monto</th></tr></thead>
       <tbody>
         {% for sale in preview.sales %}

@@ -1,9 +1,11 @@
-from flask import Blueprint, render_template, request
+import csv
+import io
 
-from models import db_session
-from models.expense import EXPENSE_CATEGORIES, EXPENSE_TYPES, Expense
-from models.sale import PAYMENT_METHODS, Sale
+from flask import Blueprint, Response, render_template, request, url_for
+
+from models.sale import PAYMENT_METHODS
 from routes import CHANNEL_LABELS, PAYMENT_LABELS, STATUS_LABELS, TYPE_LABELS
+from services.history import HistoryFilterError, load_history
 
 
 history_bp = Blueprint("history", __name__, url_prefix="/historial")
@@ -11,76 +13,74 @@ history_bp = Blueprint("history", __name__, url_prefix="/historial")
 
 @history_bp.route("/")
 def index():
-    search = (request.args.get("q") or "").strip().lower()
-    movement_type = request.args.get("type", "all")
-    status = request.args.get("status", "active")
-    payment = request.args.get("payment_method")
-    category = request.args.get("category")
-
-    movements = []
-    if movement_type in ("all", "sale"):
-        query = db_session.query(Sale).filter(Sale.deleted_at.is_(None))
-        if status in ("active", "archived"):
-            query = query.filter(Sale.status == status)
-        if payment in PAYMENT_METHODS:
-            query = query.filter(Sale.payment_method == payment)
-        for sale in query.all():
-            text = f"{sale.description or ''} {sale.notes or ''} {sale.channel}".lower()
-            if search and search not in text:
-                continue
-            movements.append({
-                "kind": "sale",
-                "label": "Venta",
-                "occurred_at": sale.occurred_at,
-                "description": sale.description or "Venta",
-                "category": sale.channel,
-                "category_label": CHANNEL_LABELS[sale.channel],
-                "payment_method": sale.payment_method,
-                "amount": sale.amount,
-                "status": sale.status,
-                "detail_url": "sales.detail",
-                "archive_url": "sales.archive",
-                "id": sale.id,
-            })
-    if movement_type in ("all", "expense", "investment"):
-        query = db_session.query(Expense).filter(Expense.deleted_at.is_(None))
-        if status in ("active", "archived"):
-            query = query.filter(Expense.status == status)
-        if payment in PAYMENT_METHODS:
-            query = query.filter(Expense.payment_method == payment)
-        if category in EXPENSE_CATEGORIES:
-            query = query.filter(Expense.category == category)
-        if movement_type == "investment":
-            query = query.filter(Expense.expense_type == "investment")
-        elif movement_type == "expense":
-            query = query.filter(Expense.expense_type == "operational")
-        for expense in query.all():
-            text = f"{expense.description} {expense.notes or ''} {expense.supplier or ''} {expense.category}".lower()
-            if search and search not in text:
-                continue
-            movements.append({
-                "kind": "investment" if expense.expense_type == "investment" else "expense",
-                "label": "Inversión" if expense.expense_type == "investment" else "Gasto",
-                "occurred_at": expense.occurred_at,
-                "description": expense.description,
-                "category": expense.category,
-                "category_label": expense.category,
-                "payment_method": expense.payment_method,
-                "amount": -expense.amount,
-                "status": expense.status,
-                "detail_url": "expenses.detail",
-                "archive_url": "expenses.archive",
-                "id": expense.id,
-            })
-
-    movements = sorted(movements, key=lambda item: item["occurred_at"], reverse=True)
+    errors = []
+    try:
+        filters, movements = load_history(request.args)
+    except HistoryFilterError as exc:
+        errors.append(str(exc))
+        filters = exc.filters
+        movements = []
     return render_template(
         "history.html",
+        errors=errors,
+        filters=filters,
         movements=movements,
-        categories=EXPENSE_CATEGORIES,
-        expense_types=EXPENSE_TYPES,
         payment_methods=PAYMENT_METHODS,
         payment_labels=PAYMENT_LABELS,
         status_labels=STATUS_LABELS,
         type_labels=TYPE_LABELS,
+        channel_labels=CHANNEL_LABELS,
+        export_url=url_for("history.export_csv", **request.args.to_dict(flat=True)),
     )
+
+
+def _spreadsheet_safe(value):
+    text = "" if value is None else str(value)
+    return f"'{text}" if text.startswith(("=", "+", "-", "@")) else text
+
+
+@history_bp.route("/exportar.csv")
+def export_csv():
+    try:
+        filters, movements = load_history(request.args)
+    except HistoryFilterError as exc:
+        return Response(str(exc), status=400, content_type="text/plain; charset=utf-8")
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, delimiter=";", lineterminator="\n")
+    writer.writerow([
+        "Fecha",
+        "Hora",
+        "Tipo",
+        "Descripción",
+        "Categoría / canal",
+        "Medio de pago",
+        "Monto CLP",
+        "Estado",
+        "ID de jornada",
+    ])
+    for movement in movements:
+        category = (
+            CHANNEL_LABELS.get(movement["category"], movement["category"])
+            if movement["kind"] == "sale"
+            else movement["category"]
+        )
+        writer.writerow([
+            movement["occurred_at"].strftime("%Y-%m-%d"),
+            movement["occurred_at"].strftime("%H:%M"),
+            _spreadsheet_safe(movement["label"]),
+            _spreadsheet_safe(movement["description"]),
+            _spreadsheet_safe(category),
+            _spreadsheet_safe(PAYMENT_LABELS[movement["payment_method"]]),
+            movement["amount"],
+            _spreadsheet_safe(STATUS_LABELS[movement["status"]]),
+            movement["work_session_id"] or "",
+        ])
+
+    filename_start = filters.start_date.isoformat() if filters.start_date else "inicio"
+    filename_end = filters.end_date.isoformat() if filters.end_date else "fin"
+    response = Response("\ufeff" + output.getvalue(), content_type="text/csv; charset=utf-8")
+    response.headers["Content-Disposition"] = (
+        f'attachment; filename="amon-erp-historial_{filename_start}_{filename_end}.csv"'
+    )
+    return response

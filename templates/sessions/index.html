@@ -1,11 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Jornadas · TBB Finanzas{% endblock %}
 {% block heading %}Jornadas de trabajo{% endblock %}
+{% block page_description %}<p class="page-description">Abre, controla y cierra cada jornada con trazabilidad de caja.</p>{% endblock %}
 
 {% block content %}
-<section class="panel page-form">
-  <div class="panel-head">
-    <h2>{{ 'Cerrar jornada' if current_session else 'Abrir jornada' }}</h2>
+{% if unassociated_count %}
+<div class="warning-banner" role="status">
+  <span class="warning-title">Hay {{ unassociated_count }} movimiento{{ 's' if unassociated_count != 1 }} sin jornada asociada.</span>
+  <p>No están incluidos en los totales del historial. Puedes asociarlos manualmente desde una jornada cerrada.</p>
+  <a class="button button-compact button-secondary" href="#session-history">Revisar asociación histórica</a>
+</div>
+{% endif %}
+<section class="section-card page-form">
+  <div class="section-heading">
+    <div><p class="section-kicker">Operación actual</p><h2>{{ 'Cerrar jornada' if current_session else 'Abrir jornada' }}</h2></div>
   </div>
   {% include "partials/errors.html" %}
   {% if current_session %}
@@ -42,19 +50,21 @@
   {% endif %}
 </section>
 
-<section class="panel">
-  <div class="panel-head"><h2>Resumen de jornada actual</h2></div>
+<section class="section-card">
+  <div class="section-heading"><div><p class="section-kicker">Señal operativa</p><h2>Resumen de jornada actual</h2></div></div>
   {% if current_session %}
     <div class="summary-grid">
       <p><span>Apertura</span><strong>{{ current_session.opened_at|dt }}</strong></p>
-      <p><span>Tiempo transcurrido</span><strong>{{ format_duration(current_metrics.duration_minutes) }}</strong></p>
-      <p><span>Ventas</span><strong class="amount-green">{{ current_metrics.total_sales|clp }}</strong></p>
-      <p><span>Ventas en efectivo</span><strong class="amount-green">{{ current_metrics.cash_sales|clp }}</strong></p>
-      <p><span>Gastos operacionales</span><strong class="amount-red">{{ current_metrics.operational_expenses|clp }}</strong></p>
-      <p><span>Gastos en efectivo</span><strong class="amount-red">{{ current_metrics.cash_expenses|clp }}</strong></p>
-      <p><span>Ganancia operativa</span><strong class="amount-blue">{{ current_metrics.operational_profit|clp }}</strong></p>
-      <p><span>Efectivo esperado</span><strong class="amount-blue">{{ current_metrics.expected_cash|clp }}</strong></p>
+      <p><span>Tiempo transcurrido</span><strong>{{ format_duration(current_metrics.duration_seconds) }}</strong></p>
+      <p><span>Efectivo inicial</span><strong class="financial-amount">{{ current_session.opening_cash|clp }}</strong></p>
+      <p><span>Ventas</span><strong class="amount-green financial-amount">{{ current_metrics.total_sales|clp }}</strong></p>
+      <p><span>Ventas en efectivo</span><strong class="amount-green financial-amount">{{ current_metrics.cash_sales|clp }}</strong></p>
+      <p><span>Gastos operacionales</span><strong class="amount-red financial-amount">{{ current_metrics.operational_expenses|clp }}</strong></p>
+      <p><span>Gastos en efectivo</span><strong class="amount-red financial-amount">{{ current_metrics.cash_expenses|clp }}</strong></p>
+      <p><span>Ganancia operativa</span><strong class="amount-blue financial-amount">{{ current_metrics.operational_profit|clp }}</strong></p>
+      <p><span>Efectivo esperado al cierre</span><strong class="amount-blue financial-amount">{{ current_metrics.expected_cash|clp }}</strong></p>
     </div>
+    <p class="cash-formula">Efectivo esperado = inicial + ventas en efectivo − gastos en efectivo.</p>
   {% else %}
     <div class="empty-state">
       <strong>No hay jornada abierta.</strong>
@@ -63,38 +73,49 @@
   {% endif %}
 </section>
 
-<section class="panel">
-  <div class="panel-head"><h2>Historial de jornadas</h2></div>
+<section class="section-card" id="session-history">
+  <div class="section-heading"><div><p class="section-kicker">Trazabilidad</p><h2>Historial de jornadas</h2></div><span class="muted">{{ session_rows|length }} jornadas</span></div>
+  {% if session_rows %}
   <div class="table-wrap responsive-table session-history">
-    <table>
+    <table class="data-table">
       <thead>
         <tr>
           <th>Fecha</th><th>Apertura</th><th>Cierre</th><th>Duración</th>
           <th class="amount-cell">Ventas</th><th class="amount-cell">Gastos</th><th class="amount-cell">Ganancia</th>
-          <th class="amount-cell">Efectivo esperado</th><th class="amount-cell">Efectivo contado</th>
-          <th class="amount-cell">Diferencia</th><th>Estado</th><th>Acciones</th>
+          <th class="amount-cell">Efectivo inicial</th><th class="amount-cell">Efectivo esperado al cierre</th><th class="amount-cell">Efectivo contado</th>
+          <th class="amount-cell">Diferencia de caja</th><th>Estado</th><th>Acciones</th>
         </tr>
       </thead>
       <tbody>
         {% for item in session_rows %}
           {% set session = item.session %}
           {% set metrics = item.metrics %}
-          <tr>
+          {% set cross_day = session.closed_at and session.closed_at.date() != session.opened_at.date() %}
+          {% set anomalous = metrics.is_anomalous_duration %}
+          <tr {% if anomalous %}class="anomalous-duration"{% endif %}>
             <td data-label="Fecha">{{ session.business_date|date_cl }}</td>
             <td data-label="Apertura">{{ session.opened_at.strftime('%H:%M') }}</td>
-            <td data-label="Cierre">{{ session.closed_at.strftime('%H:%M') if session.closed_at else '-' }}</td>
-            <td data-label="Duración">{{ format_duration(metrics.duration_minutes) }}</td>
-            <td data-label="Ventas" class="amount-green amount-cell">{{ metrics.total_sales|clp }}</td>
-            <td data-label="Gastos" class="amount-red amount-cell">{{ metrics.operational_expenses|clp }}</td>
-            <td data-label="Ganancia" class="amount-blue amount-cell">{{ metrics.operational_profit|clp }}</td>
-            <td data-label="Efectivo esperado" class="amount-cell">{{ metrics.expected_cash|clp }}</td>
-            <td data-label="Efectivo contado" class="amount-cell">{{ metrics.counted_cash|clp if metrics.counted_cash is not none else '-' }}</td>
-            <td data-label="Diferencia" class="amount-cell {{ 'positive' if metrics.cash_difference is not none and metrics.cash_difference > 0 else 'negative' if metrics.cash_difference is not none and metrics.cash_difference < 0 }}">
+            <td data-label="Cierre">
+              {% if session.closed_at %}
+                {% if cross_day or anomalous %}{{ session.closed_at|dt }}{% else %}{{ session.closed_at.strftime('%H:%M') }}{% endif %}
+              {% else %}-{% endif %}
+            </td>
+            <td data-label="Duración">
+              {{ format_duration(metrics.duration_seconds) }}
+              {% if anomalous %}<span class="warning-tag" title="Revisar fechas de apertura y cierre">⚠ Revisar fechas de apertura y cierre</span>{% endif %}
+            </td>
+            <td data-label="Ventas" class="amount-green amount-cell financial-amount">{{ metrics.total_sales|clp }}</td>
+            <td data-label="Gastos" class="amount-red amount-cell financial-amount">{{ metrics.operational_expenses|clp }}</td>
+            <td data-label="Ganancia" class="amount-blue amount-cell financial-amount">{{ metrics.operational_profit|clp }}</td>
+            <td data-label="Efectivo inicial" class="amount-cell financial-amount">{{ session.opening_cash|clp }}</td>
+            <td data-label="Efectivo esperado al cierre" class="amount-cell financial-amount">{{ metrics.expected_cash|clp }}</td>
+            <td data-label="Efectivo contado" class="amount-cell financial-amount">{{ metrics.counted_cash|clp if metrics.counted_cash is not none else '-' }}</td>
+            <td data-label="Diferencia de caja" class="amount-cell financial-amount {{ 'positive' if metrics.cash_difference is not none and metrics.cash_difference > 0 else 'negative' if metrics.cash_difference is not none and metrics.cash_difference < 0 }}">
               {{ metrics.cash_difference|clp if metrics.cash_difference is not none else '-' }}
             </td>
             <td data-label="Estado"><span class="status {{ item.status_key }}">{{ item.status_label }}</span></td>
             <td data-label="Acciones" class="actions">
-              <a class="button button-compact" href="{{ url_for('sessions.edit', session_id=session.id) }}">Editar</a>
+              <a class="button button-compact button-secondary" href="{{ url_for('sessions.edit', session_id=session.id) }}">Editar</a>
               {% if session.status != 'open' %}
                 <details class="action-menu">
                   <summary aria-label="Más acciones">⋯</summary>
@@ -115,11 +136,12 @@
               {% endif %}
             </td>
           </tr>
-        {% else %}
-          <tr><td colspan="12">No hay jornadas registradas.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% else %}
+    <div class="empty-state"><strong>Sin jornadas registradas</strong><span>Abre la primera jornada para comenzar el control operativo.</span></div>
+  {% endif %}
 </section>
 {% endblock %}

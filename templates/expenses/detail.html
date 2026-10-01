@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Detalle gasto · TBB Finanzas{% endblock %}
 {% block heading %}Detalle movimiento{% endblock %}
+{% block page_description %}<p class="page-description">Información completa del gasto o inversión seleccionado.</p>{% endblock %}
 {% block content %}
-<section class="panel narrow detail-list">
+<section class="section-card narrow detail-list">
   <p><span>Fecha</span><strong>{{ expense.occurred_at|dt }}</strong></p>
   <p><span>Monto</span><strong class="{{ 'amount-amber' if expense.expense_type == 'investment' else 'amount-red' }}">{{ expense.amount|clp }}</strong></p>
   <p><span>Tipo</span><strong>{{ type_labels[expense.expense_type] }}</strong></p>

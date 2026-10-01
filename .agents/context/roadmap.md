@@ -7,11 +7,14 @@
 
 ## F1 — Rediseño ERP minimalista
 
+- **Estado**: completado.
+- **Commit**: `dcccdf9 feat(f1): cerrar hallazgos del mini QA de F1`.
 - **Objetivo**: mejorar jerarquía visual, tablas, responsive, formularios y dashboard.
 - **Restricción**: no cambiar reglas contables ni base de datos.
 
 ### F1.1 — Preparación backend e infraestructura
 
+- **Estado**: planificado.
 - Configuración por entorno.
 - Compatibilidad con PostgreSQL.
 - Render / Neon.
