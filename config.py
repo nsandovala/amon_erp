@@ -11,7 +11,10 @@ load_dotenv(BASE_DIR / '.env', override=False)
 
 def local_secret_key():
     secret_path = BASE_DIR / "instance" / ".secret_key"
-    env_secret = os.environ.get("TBB_SECRET_KEY")
+    env_secret = (
+        os.environ.get("SECRET_KEY")
+        or os.environ.get("TBB_SECRET_KEY")
+    )
     if env_secret:
         return env_secret
     secret_path.parent.mkdir(parents=True, exist_ok=True)

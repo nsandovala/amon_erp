@@ -53,6 +53,11 @@ en `AMON_ALLOWED_USER_IDS`. Registrarse no otorga acceso. Esta lista local es un
 barrera inicial; la matriz RBAC `owner`, `manager`, `operator` y
 `accountant_readonly` queda pendiente. No se utilizan roles de Clerk.
 
+La clave de sesión se lee desde `SECRET_KEY`. Por compatibilidad con
+instalaciones anteriores también se acepta `TBB_SECRET_KEY`. Si ninguna está
+definida en desarrollo local, se utiliza `instance/.secret_key`, ignorado por Git.
+En producción `SECRET_KEY` debe definirse mediante variables de entorno.
+
 Configura localmente `.env.local` (ignorado por Git) con `CLERK_PUBLISHABLE_KEY`,
 `CLERK_SECRET_KEY`, `CLERK_AUTHORIZED_PARTIES` y `AMON_ALLOWED_USER_IDS`.
 Las variables exportadas tienen prioridad sobre `.env.local` y `.env`.
