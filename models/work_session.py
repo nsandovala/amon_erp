@@ -35,5 +35,11 @@ class WorkSession(Base):
             name="ck_work_session_closing_cash_counted_non_negative",
         ),
         CheckConstraint("status IN ('open', 'closed', 'archived')", name="ck_work_session_status"),
-        Index("uq_work_sessions_single_open", "status", unique=True, sqlite_where=text("status = 'open'")),
+        Index(
+            "uq_work_sessions_single_open",
+            "status",
+            unique=True,
+            sqlite_where=text("status = 'open'"),
+            postgresql_where=text("status = 'open'"),
+        ),
     )

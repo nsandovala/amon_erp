@@ -55,14 +55,18 @@
 
         <div class="sidebar-foot">
           {% include 'auth/controls.html' %}
-          <form action="{{ url_for('backup') }}" method="post" class="backup-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button class="button button-secondary backup-button" type="submit">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>
-              Crear respaldo
-            </button>
-          </form>
-          <span class="storage-note">Datos guardados localmente</span>
+          {% if supports_local_backup %}
+            <form action="{{ url_for('backup') }}" method="post" class="backup-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="button button-secondary backup-button" type="submit">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>
+                Crear respaldo
+              </button>
+            </form>
+            <span class="storage-note">Datos guardados localmente</span>
+          {% else %}
+            <span class="storage-note">Respaldo PostgreSQL fuera de esta aplicación</span>
+          {% endif %}
         </div>
 
         <svg class="cat-watermark" viewBox="0 0 220 180" aria-hidden="true">

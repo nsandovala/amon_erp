@@ -2,6 +2,19 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
+from sqlalchemy.engine import make_url
+
+
+def supports_local_backup(database_uri):
+    return make_url(database_uri).get_backend_name() == "sqlite"
+
+
+def local_database_path(database_uri):
+    url = make_url(database_uri)
+    if url.get_backend_name() != "sqlite" or not url.database or url.database == ":memory:":
+        raise ValueError("El respaldo local solo está disponible para una base SQLite en disco.")
+    return Path(url.database)
+
 
 def create_backup(database_path, backup_dir):
     source = Path(database_path)

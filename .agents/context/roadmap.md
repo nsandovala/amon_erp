@@ -14,13 +14,15 @@
 
 ### F1.1 — Preparación backend e infraestructura
 
-- **Estado**: planificado.
-- Configuración por entorno.
-- Compatibilidad con PostgreSQL.
-- Render / Neon.
-- Health check.
-- Logging.
-- Seguridad de producción.
+- **Estado**: en implementación.
+- Configuración `APP_ENV` y selección SQLite/PostgreSQL: implementada.
+- Compatibilidad de schema inicial con Neon y smoke test sobre base vacía: implementados.
+- Health check y diagnóstico de schema/conteos: implementados.
+- Cookies seguras y entrada Gunicorn: implementadas.
+- Migración de datos SQLite a Neon: pendiente y separada.
+- Deploy a Render: pendiente.
+- Backup productivo PostgreSQL: pendiente de diseño con capacidades del proveedor.
+- Integración con AMON Shop: pendiente y fuera de F1.1.
 
 ### F1.2 — Cuentas y medios de pago
 

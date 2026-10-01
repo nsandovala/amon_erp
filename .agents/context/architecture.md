@@ -5,7 +5,8 @@
 - **Python** 3.x
 - **Flask** 3.0.3
 - **SQLAlchemy** 2.0.31
-- **SQLite** (base local actual)
+- **SQLite** (fallback local)
+- **PostgreSQL/Neon** (destino staging/producción mediante psycopg 3)
 - **Jinja2** (templates server-side)
 - **HTML5**
 - **CSS**
@@ -59,21 +60,35 @@
 
 ## Base de datos
 
-- SQLite es la base local actual.
-- PostgreSQL será una evolución futura (F1.1).
-- No migrar a PostgreSQL en esta rama.
+- Sin `DATABASE_URL` se usa SQLite local.
+- Con `DATABASE_URL` se usa PostgreSQL/Neon; `postgresql://` se normaliza al dialecto `postgresql+psycopg://`.
+- `DATABASE_URL_UNPOOLED` no se usa como conexión normal del runtime.
+- SQLite conserva `check_same_thread=False` y `PRAGMA foreign_keys=ON`.
+- PostgreSQL usa `pool_pre_ping=True` y no recibe argumentos exclusivos de SQLite.
+- La unicidad de una sola jornada `open` se protege con índice parcial en ambos dialectos.
+- `Base.metadata.create_all()` se acepta únicamente para bootstrap inicial de una base vacía. La evolución futura requerirá migraciones versionadas.
+- Los ajustes legacy `ensure_soft_delete_columns` y `ensure_work_session_cash_columns` se ejecutan solo para SQLite.
 
 ## Tests
 
 - Tests unitarios e integración con pytest.
 - Toda lógica financiera nueva requiere tests.
-- 34 tests verdes en F0.
+- 130 tests verdes.
 
 ## Backups y migraciones
 
-- Backup manual antes de toda migración.
+- Backup local por copia de archivo únicamente para SQLite.
+- PostgreSQL dependerá de respaldos administrados del proveedor; no hay `pg_dump` en F1.1.
 - Migraciones no destructivas.
 - Idempotencia preferida.
+
+## Operación
+
+- `GET /health` es público y ejecuta `SELECT 1`; no consulta datos financieros ni requiere Clerk.
+- `flask --app app db-check` valida conexión, tablas y columnas críticas.
+- `flask --app app db-counts` entrega conteos para una migración futura, sin copiar datos.
+- `APP_ENV=staging|production` activa cookies seguras.
+- `gunicorn wsgi:app` es la entrada WSGI preparada para Render; el deploy sigue pendiente.
 
 ## JavaScript
 

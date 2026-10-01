@@ -1,10 +1,13 @@
 import csv
 import io
+import json
 import secrets
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from flask import Flask, Response, abort, flash, g, redirect, render_template, request, session, url_for
+import click
+from flask import Flask, Response, abort, flash, g, jsonify, redirect, render_template, request, session, url_for
+from sqlalchemy.exc import SQLAlchemyError
 
 from config import Config
 from models import (
@@ -26,8 +29,9 @@ from routes.history import history_bp
 from routes.sales import sales_bp
 from routes.sessions import sessions_bp
 from routes.trash import trash_bp
-from services.backup import create_backup
+from services.backup import create_backup, local_database_path, supports_local_backup
 from services.auth import init_auth
+from services.database import database_is_available, record_counts, schema_errors
 from services.metrics import monthly_summary
 
 
@@ -36,14 +40,25 @@ def create_app(test_config=None):
     app.config.from_object(Config)
     if test_config:
         app.config.update(test_config)
+    if app.config["APP_ENV"] in {"production", "staging"}:
+        app.config.update(
+            SESSION_COOKIE_SECURE=True,
+            SESSION_COOKIE_HTTPONLY=True,
+            SESSION_COOKIE_SAMESITE="Lax",
+        )
     init_auth(app)
 
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
-    Path(app.config["BACKUP_DIR"]).mkdir(parents=True, exist_ok=True)
-    init_engine(app.config["SQLALCHEMY_DATABASE_URI"])
-    create_tables()
-    ensure_soft_delete_columns(app.config["SQLALCHEMY_DATABASE_URI"], app.config["BACKUP_DIR"])
-    ensure_work_session_cash_columns(app.config["SQLALCHEMY_DATABASE_URI"], app.config["BACKUP_DIR"])
+    if supports_local_backup(app.config["SQLALCHEMY_DATABASE_URI"]):
+        Path(app.config["BACKUP_DIR"]).mkdir(parents=True, exist_ok=True)
+    database_engine = init_engine(app.config["SQLALCHEMY_DATABASE_URI"])
+    try:
+        create_tables()
+        ensure_soft_delete_columns(app.config["SQLALCHEMY_DATABASE_URI"], app.config["BACKUP_DIR"])
+        ensure_work_session_cash_columns(app.config["SQLALCHEMY_DATABASE_URI"], app.config["BACKUP_DIR"])
+    except SQLAlchemyError:
+        # Keep health and diagnostics available during a database outage.
+        app.logger.warning("Database schema bootstrap unavailable")
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(sales_bp)
@@ -81,6 +96,7 @@ def create_app(test_config=None):
             "form_time": form_time,
             "format_duration": format_duration,
             "now_santiago": now_santiago,
+            "supports_local_backup": supports_local_backup(app.config["SQLALCHEMY_DATABASE_URI"]),
         }
 
     @app.template_filter("clp")
@@ -97,13 +113,23 @@ def create_app(test_config=None):
 
     @app.route("/backup", methods=["POST"])
     def backup():
-        db_path = app.config["SQLALCHEMY_DATABASE_URI"].replace("sqlite:///", "")
+        database_uri = app.config["SQLALCHEMY_DATABASE_URI"]
+        if not supports_local_backup(database_uri):
+            flash("PostgreSQL no admite respaldo local desde esta aplicación; no se creó un archivo SQLite.", "error")
+            return redirect(request.referrer or url_for("dashboard.index"))
         try:
-            target = create_backup(db_path, app.config["BACKUP_DIR"])
+            target = create_backup(local_database_path(database_uri), app.config["BACKUP_DIR"])
             flash(f"Respaldo creado: {target.name}", "success")
         except Exception as exc:
             flash(str(exc), "error")
         return redirect(request.referrer or url_for("dashboard.index"))
+
+    @app.get("/health")
+    def health():
+        if database_is_available(database_engine):
+            return jsonify(status="ok", database="ok")
+        app.logger.warning("Database health check failed")
+        return jsonify(status="degraded", database="error"), 503
 
     @app.route("/monthly-summary.csv")
     def monthly_summary_csv():
@@ -145,6 +171,20 @@ def create_app(test_config=None):
     def init_db_command():
         create_tables()
         print("Base de datos inicializada.")
+
+    @app.cli.command("db-check")
+    def db_check_command():
+        errors = schema_errors(database_engine)
+        if errors:
+            raise click.ClickException(" ".join(errors))
+        click.echo("Conexión y schema verificados.")
+
+    @app.cli.command("db-counts")
+    def db_counts_command():
+        errors = schema_errors(database_engine)
+        if errors:
+            raise click.ClickException("No se pueden contar registros: el schema no es válido.")
+        click.echo(json.dumps(record_counts(database_engine), sort_keys=True))
 
     @app.cli.command("reset-db")
     def reset_db_command():
@@ -242,8 +282,6 @@ def seed_demo_data():
     db_session.commit()
 
 
-app = create_app()
-
-
 if __name__ == "__main__":
-    app.run(debug=True)
+    development_app = create_app()
+    development_app.run(debug=development_app.config["APP_ENV"] == "development")

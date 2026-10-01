@@ -19,8 +19,16 @@ def now_santiago():
 
 def init_engine(database_uri):
     global engine
-    connect_args = {"check_same_thread": False} if database_uri.startswith("sqlite") else {}
-    engine = create_engine(database_uri, connect_args=connect_args, future=True)
+    db_session.remove()
+    if engine is not None:
+        engine.dispose()
+
+    engine_options = {"future": True}
+    if database_uri.startswith("sqlite"):
+        engine_options["connect_args"] = {"check_same_thread": False}
+    else:
+        engine_options["pool_pre_ping"] = True
+    engine = create_engine(database_uri, **engine_options)
 
     if database_uri.startswith("sqlite"):
         @event.listens_for(engine, "connect")
@@ -31,6 +39,10 @@ def init_engine(database_uri):
 
     db_session.configure(bind=engine)
     Base.query = db_session.query_property()
+    return engine
+
+
+def get_engine():
     return engine
 
 
