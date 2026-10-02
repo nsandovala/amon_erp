@@ -6,7 +6,6 @@ window.addEventListener('load', async () => {
     await window.Clerk.load({
       ui: { ClerkUI: window.__internal_ClerkUICtor },
       signInForceRedirectUrl: '/auth',
-      signUpForceRedirectUrl: '/auth',
     });
     const clerk = window.Clerk;
     const user = controls.querySelector('[data-auth-user]');
@@ -19,11 +18,8 @@ window.addEventListener('load', async () => {
       status.textContent = '';
     }
     const signIn = controls.querySelector('[data-auth-sign-in]');
-    const signUp = controls.querySelector('[data-auth-sign-up]');
     signIn.disabled = false;
-    signUp.disabled = false;
     signIn.addEventListener('click', () => clerk.openSignIn());
-    signUp.addEventListener('click', () => clerk.openSignUp());
     const initialUser = clerk.user?.id || null;
     clerk.addListener(({ user: currentUser }) => {
       if ((currentUser?.id || null) !== initialUser) window.location.assign('/auth');

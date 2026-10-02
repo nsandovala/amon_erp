@@ -4,7 +4,8 @@
 {% block page_description %}<p class="page-description">Controla la operación diaria y mantén la inversión separada.</p>{% endblock %}
 
 {% block content %}
-<section class="section-card page-form" id="new-expense">
+<section class="expense-top-grid" aria-label="Registro y resumen de gastos">
+<section class="section-card page-form expense-form-card" id="new-expense">
   <div class="section-heading"><div><p class="section-kicker">Nuevo movimiento</p><h2>Agregar gasto o inversión</h2></div></div>
   {% include "partials/errors.html" %}
   <form method="post" class="form-grid form-grid-wide">
@@ -22,7 +23,7 @@
   </form>
 </section>
 
-<section class="section-card">
+<section class="section-card expense-summary-card">
   <div class="section-heading"><div><p class="section-kicker">Periodo filtrado</p><h2>Resumen y filtros</h2></div></div>
   <div class="summary-pair"><p><span>Gastos operacionales</span><strong class="amount-red financial-amount">{{ total_operational|clp }}</strong></p><p><span>Inversiones</span><strong class="amount-amber financial-amount">{{ total_investments|clp }}</strong></p></div>
   <form class="filter-grid" method="get" aria-label="Filtros de gastos">
@@ -33,11 +34,12 @@
     <a class="button button-muted" href="{{ url_for('expenses.index') }}">Limpiar filtros</a>
   </form>
 </section>
+</section>
 
 <section class="section-card">
   <div class="section-heading"><div><p class="section-kicker">Registro</p><h2>Historial de gastos e inversiones</h2></div><span class="muted">{{ expenses|length }} movimientos</span></div>
   {% if expenses %}
-    <div class="table-wrap responsive-table"><table class="data-table"><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Tipo</th><th class="amount-cell">Monto</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+    <div class="table-wrap table-scroll table-scroll-history responsive-table"><table class="data-table"><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Tipo</th><th class="amount-cell">Monto</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
       {% for expense in expenses %}
         <tr class="mobile-record-card"><td data-label="Fecha">{{ expense.occurred_at|dt }}</td><td data-label="Descripción"><strong>{{ expense.description }}</strong></td><td data-label="Categoría">{{ expense.category }}</td><td data-label="Tipo"><span class="movement-type {{ expense.expense_type }}">{{ type_labels[expense.expense_type] }}</span></td><td data-label="Monto" class="{{ 'amount-amber' if expense.expense_type == 'investment' else 'amount-red' }} amount-cell financial-amount">{{ expense.amount|clp }}</td><td data-label="Estado"><span class="status {{ expense.status }}">{{ status_labels[expense.status] }}</span></td>
           <td data-label="Acciones" class="actions"><a class="button button-compact button-secondary" href="{{ url_for('expenses.edit', expense_id=expense.id) }}">Editar</a><div class="action-menu" data-action-menu><button class="action-menu-trigger" type="button" aria-label="Más acciones para {{ expense.description }}" aria-expanded="false" data-action-menu-trigger>⋯</button><div class="action-menu-popover" data-action-menu-popover hidden><a href="{{ url_for('expenses.detail', expense_id=expense.id) }}">Ver detalle</a>{% if expense.status == 'active' %}<form method="post" action="{{ url_for('expenses.archive', expense_id=expense.id) }}" data-confirm="¿Archivar este movimiento?"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Archivar</button></form>{% endif %}<form method="post" action="{{ url_for('expenses.delete', expense_id=expense.id) }}" data-delete-form data-delete-kind="{{ type_labels[expense.expense_type] }}" data-delete-description="{{ expense.description }}" data-delete-date="{{ expense.occurred_at|dt }}" data-delete-amount="{{ expense.amount|clp }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="danger-text" type="submit">Eliminar</button></form></div></div></td>

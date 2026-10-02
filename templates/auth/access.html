@@ -1,31 +1,31 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-theme="auto">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Acceso · AMON ERP</title>
+  {% include 'partials/theme_bootstrap.html' %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
   {% if not auth_unavailable %}{% include 'auth/scripts.html' %}{% endif %}
 </head>
-<body>
-  <main class="content-frame">
-    <header class="page-header"><div><p class="eyebrow">The Best Burger</p><h1>AMON ERP</h1></div></header>
-    <section class="panel" aria-label="Acceso seguro">
+<body class="auth-page">
+  <main class="auth-shell">
+    <div class="auth-toolbar">{% include 'partials/theme_control.html' %}</div>
+    <header class="auth-brand"><span class="brand-mark" aria-hidden="true">A</span><div><p class="eyebrow">Producto AMON</p><h1>AMON ERP</h1><p>The Best Burger · Organización activa</p></div></header>
+    <section class="panel auth-panel" aria-label="Acceso seguro">
       {% if auth_unavailable %}
         <h2>Acceso temporalmente no disponible</h2>
         <p>Revisa la configuración de autenticación o vuelve a intentar más tarde.</p>
-      {% else %}
-        <h2>Tu cuenta de AMON</h2>
-        <p>Inicia sesión o crea tu cuenta para solicitar acceso.</p>
+      {% elif g.user_id and not g.erp_access %}
+        <h2>Esta cuenta no tiene acceso a esta organización.</h2>
+        <p>Usa otra cuenta autorizada para The Best Burger.</p>
         {% include 'auth/controls.html' %}
-        {% if g.user_id %}
-          {% if g.erp_access %}
-            <a class="button" href="{{ url_for('dashboard.index') }}">Entrar al ERP</a>
-          {% else %}
-            <p>Tu identidad está verificada. Un administrador debe habilitar tu acceso al ERP.</p>
-            <p>Identificador de tu cuenta: <code>{{ g.user_id }}</code></p>
-          {% endif %}
-        {% endif %}
+      {% else %}
+        <h2>Acceso a AMON ERP</h2>
+        <p>Ingresa con tu cuenta autorizada para The Best Burger.</p>
+        {% include 'auth/controls.html' %}
       {% endif %}
     </section>
   </main>

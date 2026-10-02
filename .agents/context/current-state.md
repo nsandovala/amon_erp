@@ -13,7 +13,7 @@
 
 ## Tests
 
-- **147 pruebas verdes**.
+- **155 pruebas verdes**.
 - Suite: pytest.
 
 ## Funcionalidades entregadas en F0
@@ -66,6 +66,14 @@
 - Los menús secundarios de tablas flotan fuera de contenedores con scroll y se ajustan a los límites del viewport.
 - La metadata y navegación identifican el producto como AMON ERP y el contexto activo como The Best Burger.
 
+## F1.3 product polish implementado
+
+- Sistema visual Snow Autumn / AMON Space con preferencias Auto, Claro y Oscuro persistidas localmente.
+- Shell de producto separa AMON ERP de la organización activa The Best Burger sin implementar multiempresa.
+- Dashboard, formularios, tablas, estados, diálogos y navegación comparten tokens semánticos responsive.
+- Chart.js responde a cambios de tema sin recargar la página.
+- Base de impresión, movimiento reducido y estados de carga preparados en CSS.
+
 ## Limitaciones actuales
 
 - No multiempresa.
@@ -83,10 +91,10 @@
 
 ## Estado del repositorio
 
-- Rama activa: `feature/f1.1-production-foundation`.
+- Rama activa: `feature/f1.3-product-polish`.
 - Baseline: `310f22d merge: integrate Clerk auth foundation` con 111 tests.
-- F1.1, F1.1.1 y F1.1.2 agregan 36 tests; total actual: 147.
-- Hay cambios de F1.1 sin commit durante esta tarea.
+- F1.1, F1.1.1, F1.1.2 y F1.3 agregan 44 tests; total actual: 155.
+- Hay cambios de F1.3 sin commit durante esta tarea.
 
 ## Próxima fase planificada
 
