@@ -73,7 +73,7 @@
 
 - Tests unitarios e integración con pytest.
 - Toda lógica financiera nueva requiere tests.
-- 130 tests verdes.
+- 155 tests verdes.
 
 ## Backups y migraciones
 
@@ -95,3 +95,12 @@
 - Mínimo indispensable.
 - Sin React, Vue ni Angular.
 - Sin cálculos financieros en el navegador.
+- Preferencia visual Auto/Claro/Oscuro persistida únicamente en `localStorage`.
+- Los gráficos leen colores desde tokens CSS y se reconstruyen al cambiar de tema.
+
+## Sistema visual
+
+- Snow Autumn es el tema claro y AMON Space es el tema oscuro.
+- Los tokens semánticos viven en `static/css/app.css`; los componentes no definen lógica financiera.
+- AMON ERP es el producto y The Best Burger es la organización activa mostrada en el shell.
+- La organización visual no implica todavía multiempresa ni un modelo de organización en base de datos.

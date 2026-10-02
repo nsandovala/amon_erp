@@ -24,10 +24,10 @@
       <thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Pago</th><th class="amount-cell">Monto</th></tr></thead>
       <tbody>
         {% for sale in preview.sales %}
-          <tr><td data-label="Fecha">{{ sale.occurred_at|dt }}</td><td data-label="Tipo">Venta</td><td data-label="Descripción">{{ sale.description or 'Venta' }}</td><td data-label="Pago">{{ payment_labels[sale.payment_method] }}</td><td data-label="Monto" class="amount-green amount-cell">{{ sale.amount|clp }}</td></tr>
+          <tr class="mobile-record-card"><td data-label="Fecha">{{ sale.occurred_at|dt }}</td><td data-label="Tipo">Venta</td><td data-label="Descripción">{{ sale.description or 'Venta' }}</td><td data-label="Pago">{{ payment_labels[sale.payment_method] }}</td><td data-label="Monto" class="amount-green amount-cell">{{ sale.amount|clp }}</td></tr>
         {% endfor %}
         {% for expense in preview.expenses %}
-          <tr><td data-label="Fecha">{{ expense.occurred_at|dt }}</td><td data-label="Tipo">Gasto operacional</td><td data-label="Descripción">{{ expense.description }}</td><td data-label="Pago">{{ payment_labels[expense.payment_method] }}</td><td data-label="Monto" class="amount-red amount-cell">{{ expense.amount|clp }}</td></tr>
+          <tr class="mobile-record-card"><td data-label="Fecha">{{ expense.occurred_at|dt }}</td><td data-label="Tipo">Gasto operacional</td><td data-label="Descripción">{{ expense.description }}</td><td data-label="Pago">{{ payment_labels[expense.payment_method] }}</td><td data-label="Monto" class="amount-red amount-cell">{{ expense.amount|clp }}</td></tr>
         {% endfor %}
         {% if not preview.sales and not preview.expenses %}<tr><td colspan="5">No hay movimientos elegibles para esta jornada.</td></tr>{% endif %}
       </tbody>

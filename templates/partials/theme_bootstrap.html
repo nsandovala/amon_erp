@@ -1,0 +1,13 @@
+<script>
+  (() => {
+    const storageKey = "amon-erp-theme";
+    let preference = "auto";
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (["auto", "light", "dark"].includes(stored)) preference = stored;
+    } catch (_error) {
+      // Theme persistence is optional when storage is unavailable.
+    }
+    document.documentElement.dataset.theme = preference;
+  })();
+</script>

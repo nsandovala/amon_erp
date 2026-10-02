@@ -21,6 +21,12 @@ Multiempresa para:
 
 Control financiero operativo del food truck y The Best Burger SpA.
 
+## Contexto de producto
+
+- **Producto**: AMON ERP.
+- **Organización activa**: The Best Burger.
+- Esta separación es visual y conceptual; no existe todavía multiempresa ni selector de organización.
+
 ## Usuarios principales
 
 1. Administradora operativa

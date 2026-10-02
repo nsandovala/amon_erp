@@ -6,6 +6,50 @@ function formatMoney(value) {
   }).format(value || 0);
 }
 
+const chartInstances = [];
+
+function cssToken(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function bindThemeControl() {
+  const storageKey = "amon-erp-theme";
+  const controls = document.querySelectorAll("[data-theme-control]");
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+
+  const updateControls = () => {
+    const preference = document.documentElement.dataset.theme || "auto";
+    controls.forEach((control) => {
+      control.querySelectorAll("[data-theme-value]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.themeValue === preference));
+      });
+    });
+  };
+
+  const applyPreference = (preference, persist = true) => {
+    document.documentElement.dataset.theme = preference;
+    if (persist) {
+      try {
+        localStorage.setItem(storageKey, preference);
+      } catch (_error) {
+        // The selected theme still applies for the current page.
+      }
+    }
+    updateControls();
+    rebuildCharts();
+  };
+
+  controls.forEach((control) => {
+    control.querySelectorAll("[data-theme-value]").forEach((button) => {
+      button.addEventListener("click", () => applyPreference(button.dataset.themeValue));
+    });
+  });
+  media.addEventListener?.("change", () => {
+    if (document.documentElement.dataset.theme === "auto") rebuildCharts();
+  });
+  updateControls();
+}
+
 function parseChartData(element) {
   if (!element) return [];
   try {
@@ -26,9 +70,12 @@ function setChartEmpty(canvas, empty) {
 
 function buildCharts() {
   if (!window.Chart) return;
-  Chart.defaults.color = "#817E89";
-  Chart.defaults.borderColor = "rgba(255,255,255,.08)";
-  Chart.defaults.font.family = 'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif';
+  const chartText = cssToken("--chart-text");
+  const chartGrid = cssToken("--chart-grid");
+  const chartSurface = cssToken("--surface");
+  Chart.defaults.color = chartText;
+  Chart.defaults.borderColor = chartGrid;
+  Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
 
   const dailyElement = document.getElementById("dailyChart");
   const dailyData = parseChartData(dailyElement);
@@ -36,13 +83,13 @@ function buildCharts() {
     if (!hasChartValues(dailyData, ["sales", "expenses"])) {
       setChartEmpty(dailyElement, true);
     } else {
-      new Chart(dailyElement, {
+      chartInstances.push(new Chart(dailyElement, {
         type: "bar",
         data: {
           labels: dailyData.map((item) => item.label),
           datasets: [
-            { label: "Ventas", data: dailyData.map((item) => item.sales), backgroundColor: "rgba(66,216,148,.72)", borderRadius: 4, maxBarThickness: 24 },
-            { label: "Gastos operacionales", data: dailyData.map((item) => item.expenses), backgroundColor: "rgba(255,98,104,.68)", borderRadius: 4, maxBarThickness: 24 }
+            { label: "Ventas", data: dailyData.map((item) => item.sales), backgroundColor: cssToken("--chart-green"), borderRadius: 5, maxBarThickness: 24 },
+            { label: "Gastos operacionales", data: dailyData.map((item) => item.expenses), backgroundColor: cssToken("--chart-red"), borderRadius: 5, maxBarThickness: 24 }
           ]
         },
         options: {
@@ -51,17 +98,25 @@ function buildCharts() {
           interaction: { intersect: false, mode: "index" },
           plugins: {
             legend: { position: "bottom", align: "start", labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 18 } },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatMoney(ctx.raw)}` } }
+            tooltip: {
+              backgroundColor: cssToken("--chart-tooltip"),
+              titleColor: cssToken("--chart-tooltip-text"),
+              bodyColor: cssToken("--chart-tooltip-text"),
+              borderColor: cssToken("--border-strong"),
+              borderWidth: 1,
+              callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatMoney(ctx.raw)}` }
+            }
           },
           scales: {
-            x: { grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 10, maxRotation: 0 } },
+            x: { grid: { display: false }, ticks: { color: chartText, autoSkip: true, maxTicksLimit: 10, maxRotation: 0 } },
             y: {
               beginAtZero: true,
-              ticks: { maxTicksLimit: 6, callback: (value) => formatMoney(value) }
+              grid: { color: chartGrid },
+              ticks: { color: chartText, maxTicksLimit: 6, callback: (value) => formatMoney(value) }
             }
           }
         }
-      });
+      }));
     }
   }
 
@@ -71,14 +126,22 @@ function buildCharts() {
     if (!categoryData.some((item) => Number(item.amount || 0) > 0)) {
       setChartEmpty(categoryElement, true);
     } else {
-      new Chart(categoryElement, {
+      chartInstances.push(new Chart(categoryElement, {
         type: "doughnut",
         data: {
           labels: categoryData.map((item) => item.category),
           datasets: [{
             data: categoryData.map((item) => item.amount),
-            backgroundColor: ["#FF6268", "#F0B84A", "#66CFF2", "#42D894", "#8D7CFF", "#B4B1BC", "#D986A1"],
-            borderColor: "#15161C",
+            backgroundColor: [
+              cssToken("--chart-red"),
+              cssToken("--chart-amber"),
+              cssToken("--chart-cyan"),
+              cssToken("--chart-green"),
+              cssToken("--chart-navy"),
+              cssToken("--chart-muted"),
+              cssToken("--chart-sand"),
+            ],
+            borderColor: chartSurface,
             borderWidth: 3,
             hoverOffset: 3
           }]
@@ -89,12 +152,25 @@ function buildCharts() {
           cutout: "66%",
           plugins: {
             legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 14 } },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${formatMoney(ctx.raw)}` } }
+            tooltip: {
+              backgroundColor: cssToken("--chart-tooltip"),
+              titleColor: cssToken("--chart-tooltip-text"),
+              bodyColor: cssToken("--chart-tooltip-text"),
+              borderColor: cssToken("--border-strong"),
+              borderWidth: 1,
+              callbacks: { label: (ctx) => `${ctx.label}: ${formatMoney(ctx.raw)}` }
+            }
           }
         }
-      });
+      }));
     }
   }
+}
+
+function rebuildCharts() {
+  if (!window.Chart || chartInstances.length === 0) return;
+  chartInstances.splice(0).forEach((chart) => chart.destroy());
+  buildCharts();
 }
 
 function bindMobileNavigation() {
@@ -134,13 +210,30 @@ function bindCustomPeriodFilter() {
 }
 
 function bindConfirmations() {
+  const dialog = document.getElementById("confirmDialog");
+  let pendingForm = null;
+
   document.querySelectorAll("form[data-confirm]").forEach((form) => {
     form.addEventListener("submit", (event) => {
       const message = form.getAttribute("data-confirm") || "¿Confirmar esta acción?";
-      if (!window.confirm(message)) {
-        event.preventDefault();
+      if (form.dataset.confirmed === "true") return;
+      if (!dialog || typeof dialog.showModal !== "function") {
+        if (!window.confirm(message)) event.preventDefault();
+        return;
       }
+      event.preventDefault();
+      pendingForm = form;
+      dialog.querySelector("[data-confirm-message]").textContent = message;
+      dialog.showModal();
     });
+  });
+
+  dialog?.addEventListener("close", () => {
+    if (dialog.returnValue === "confirm" && pendingForm) {
+      pendingForm.dataset.confirmed = "true";
+      pendingForm.submit();
+    }
+    pendingForm = null;
   });
 }
 
@@ -340,6 +433,7 @@ function bindHistoryPeriod() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  bindThemeControl();
   bindMobileNavigation();
   bindCustomPeriodFilter();
   bindConfirmations();

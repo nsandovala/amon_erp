@@ -64,6 +64,8 @@ def init_auth(app):
             g.user_id = payload['sub']
             g.erp_access = g.user_id in app.config['AMON_ALLOWED_USER_IDS']
         if request.endpoint == 'auth_access':
+            if g.user_id and g.erp_access:
+                return redirect(url_for('dashboard.index'))
             return None
         if not g.user_id:
             if request.method in ('GET', 'HEAD'):

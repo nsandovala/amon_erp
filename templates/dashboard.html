@@ -71,7 +71,7 @@
 </section>
 
 <section class="dashboard-grid dashboard-grid-context">
-  <article class="section-card">
+  <article class="section-card context-investment-card">
     <div class="section-heading"><div><p class="section-kicker">Capital</p><h2>Inversión del proyecto</h2></div></div>
     <div class="return-estimate" aria-label="Retorno estimado simple">
       <p class="return-label">Retorno estimado simple</p>
@@ -106,6 +106,7 @@
     {% endif %}
   </article>
 
+  <div class="dashboard-context-side">
   <article class="section-card">
     <div class="section-heading"><div><p class="section-kicker">Control</p><h2>Diferencias de caja</h2></div><a class="text-link" href="{{ url_for('sessions.index') }}">Ver jornadas</a></div>
     {% if cash_differences %}
@@ -125,7 +126,7 @@
   <article class="section-card movements-card">
     <div class="section-heading"><div><p class="section-kicker">Actividad</p><h2>Últimos movimientos</h2></div><a class="text-link" href="{{ url_for('history.index') }}">Ver historial</a></div>
     {% if latest_movements %}
-      <div class="movement-list">
+      <div class="movement-list movement-list-scroll">
         {% for item in latest_movements %}
           <div class="movement-row {{ item.tone }}">
             <div><strong>{{ item.description }}</strong><span>{{ item.occurred_at|dt }}</span></div>
@@ -137,17 +138,18 @@
       <div class="empty-state compact-empty"><strong>Sin movimientos recientes</strong><span>Registra una venta o un gasto para comenzar.</span></div>
     {% endif %}
   </article>
+  </div>
 </section>
 
 <section class="section-card">
   <div class="section-heading"><div><p class="section-kicker">Tendencia</p><h2>Resumen mensual</h2></div><a class="button button-secondary button-compact" href="{{ url_for('monthly_summary_csv', year=start_date.year) }}">Exportar CSV</a></div>
   {% if monthly_rows %}
-    <div class="table-wrap responsive-table">
+    <div class="table-wrap table-scroll table-scroll-monthly responsive-table">
       <table class="data-table">
         <thead><tr><th>Mes</th><th>Días</th><th class="amount-cell">Ingresos</th><th class="amount-cell">Ganancia operativa</th><th class="amount-cell">Resultado total</th></tr></thead>
         <tbody>
           {% for row in monthly_rows %}
-            <tr><td data-label="Mes"><strong>{{ row.month }}</strong></td><td data-label="Días">{{ row.worked_days }}</td><td data-label="Ingresos" class="amount-cell financial-amount">{{ row.income|clp }}</td><td data-label="Ganancia operativa" class="amount-cell financial-amount amount-blue">{{ row.operating_profit|clp }}</td><td data-label="Resultado total" class="amount-cell financial-amount">{{ row.total_result|clp }}</td></tr>
+            <tr class="mobile-record-card"><td data-label="Mes"><strong>{{ row.month }}</strong></td><td data-label="Días">{{ row.worked_days }}</td><td data-label="Ingresos" class="amount-cell financial-amount">{{ row.income|clp }}</td><td data-label="Ganancia operativa" class="amount-cell financial-amount amount-blue">{{ row.operating_profit|clp }}</td><td data-label="Resultado total" class="amount-cell financial-amount">{{ row.total_result|clp }}</td></tr>
           {% endfor %}
         </tbody>
       </table>

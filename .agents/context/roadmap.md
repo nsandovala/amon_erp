@@ -31,7 +31,14 @@
 - Compraquí.
 - Procesadores de pago genéricos.
 
-### F1.3 — Usuarios y roles
+### F1.3 — AMON ERP Product Polish
+
+- Sistema visual con temas Auto, Claro y Oscuro.
+- Separación visual entre producto y organización activa.
+- Shell, dashboard, formularios, tablas, responsive y base de impresión.
+- Sin cambios contables, de base de datos ni de módulos.
+
+### F1.4 — Usuarios y roles
 
 - Owner.
 - Manager.

@@ -1,5 +1,5 @@
 {% if errors %}
-  <div class="error-box">
+  <div class="error-box" role="alert" aria-live="polite">
     {% for error in errors %}
       <p>{{ error }}</p>
     {% endfor %}

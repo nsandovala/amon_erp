@@ -69,7 +69,9 @@ def test_public_access_does_not_query_finances(auth_app):
     with patch('app.active_work_session', side_effect=AssertionError('financial query')):
         response = auth_app.test_client().get('/auth')
     assert response.status_code == 200
-    assert b'Crear cuenta' in response.data
+    assert b'Acceso a AMON ERP' in response.data
+    assert b'Ingresa con tu cuenta autorizada para The Best Burger.' in response.data
+    assert b'Crear cuenta' not in response.data
     assert b'sk_test_not_a_real_key' not in response.data
 
 
@@ -88,6 +90,19 @@ def test_valid_bearer_sets_identity(verified_client, signing_key):
 def test_valid_cookie(verified_client, signing_key):
     verified_client.set_cookie('__session', signed_token(signing_key))
     assert verified_client.get('/').status_code == 200
+
+
+def test_authorized_account_is_redirected_from_auth(verified_client, signing_key):
+    response = verified_client.get('/auth', headers={'Authorization': 'Bearer ' + signed_token(signing_key)})
+    assert response.status_code == 302
+    assert response.location == '/'
+
+
+def test_signed_in_account_without_access_sees_safe_access_state(verified_client, signing_key):
+    response = verified_client.get('/auth', headers={'Authorization': 'Bearer ' + signed_token(signing_key, sub='user_new')})
+    assert response.status_code == 200
+    assert b'Esta cuenta no tiene acceso a esta organizaci' in response.data
+    assert b'user_new' not in response.data
 
 
 @pytest.mark.parametrize('claims', [
@@ -109,7 +124,8 @@ def test_signup_does_not_grant_access_or_trust_clerk_role(verified_client, signi
     response = verified_client.get('/', headers={'Authorization': 'Bearer ' + signed_token(
         signing_key, sub='user_new', role='owner', org_role='org:admin')})
     assert response.status_code == 403
-    assert b'user_new' in response.data
+    assert b'Esta cuenta no tiene acceso a esta organizaci' in response.data
+    assert b'user_new' not in response.data
 
 
 def test_csrf_still_required(verified_client, signing_key):

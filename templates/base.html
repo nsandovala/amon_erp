@@ -1,24 +1,25 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-theme="auto">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="dark">
+    <meta name="color-scheme" content="light dark">
     <title>{% block title %}AMON ERP{% endblock %}</title>
+    {% include 'partials/theme_bootstrap.html' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
     <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
     {% include 'auth/scripts.html' %}
   </head>
-  <body>
+  <body data-app-shell>
     <div class="app-shell">
       <aside class="sidebar" id="appNavigation" aria-label="Navegación principal">
         <div class="sidebar-head">
           <a class="brand" href="{{ url_for('dashboard.index') }}" aria-label="AMON ERP, The Best Burger, ir al resumen financiero">
-            <span class="brand-mark">AMON</span>
+            <span class="brand-mark" aria-hidden="true">A</span>
             <span class="brand-copy">
+              <small>AMON</small>
               <strong>AMON ERP</strong>
-              <small>The Best Burger</small>
             </span>
           </a>
           <button class="icon-button nav-close" type="button" data-nav-close aria-label="Cerrar navegación">
@@ -26,10 +27,21 @@
           </button>
         </div>
 
+        <section class="organization-card" aria-label="Organización activa">
+          <span class="organization-avatar" aria-hidden="true">TB</span>
+          <span class="organization-copy">
+            <small>Organización activa</small>
+            <strong>The Best Burger</strong>
+            <span class="organization-state"><i></i> Operativa</span>
+          </span>
+        </section>
+
         <nav class="nav">
+          <div class="nav-group">
+            <p class="nav-label">Operación</p>
           <a class="{{ 'active' if request.endpoint and request.endpoint.startswith('dashboard.') }}" {% if request.endpoint and request.endpoint.startswith('dashboard.') %}aria-current="page"{% endif %} href="{{ url_for('dashboard.index') }}">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-            <span>Dashboard</span>
+            <span>Resumen</span>
           </a>
           <a class="{{ 'active' if request.endpoint and request.endpoint.startswith('sales.') }}" {% if request.endpoint and request.endpoint.startswith('sales.') %}aria-current="page"{% endif %} href="{{ url_for('sales.index') }}">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 10 11l4 4 6-8"/><path d="M14 7h6v6"/></svg>
@@ -47,14 +59,17 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>
             <span>Historial</span>
           </a>
+          </div>
+          <div class="nav-group nav-group-system">
+          <p class="nav-label">Sistema</p>
           <a class="{{ 'active' if request.endpoint and request.endpoint.startswith('trash.') }}" {% if request.endpoint and request.endpoint.startswith('trash.') %}aria-current="page"{% endif %} href="{{ url_for('trash.index') }}">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>
             <span>Papelera</span>
           </a>
+          </div>
         </nav>
 
         <div class="sidebar-foot">
-          {% include 'auth/controls.html' %}
           {% if supports_local_backup %}
             <form action="{{ url_for('backup') }}" method="post" class="backup-form">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -69,10 +84,6 @@
           {% endif %}
         </div>
 
-        <svg class="cat-watermark" viewBox="0 0 220 180" aria-hidden="true">
-          <path d="M52 144c6-42 17-82 44-100L86 18l31 17 27-17-8 28c25 20 36 57 42 98 3 20-12 36-32 36H84c-20 0-35-16-32-36Z" fill="currentColor"/>
-          <path d="M76 86c10 7 21 10 34 10s25-3 34-10" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-        </svg>
       </aside>
 
       <button class="nav-backdrop" type="button" data-nav-close aria-label="Cerrar navegación"></button>
@@ -82,9 +93,19 @@
           <button class="icon-button" type="button" data-nav-open aria-controls="appNavigation" aria-expanded="false" aria-label="Abrir navegación">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
           </button>
-          <span class="mobile-brand">AMON ERP · The Best Burger</span>
+          <span class="mobile-brand"><strong>AMON ERP</strong><small>The Best Burger</small></span>
           <span class="mobile-session-dot {{ 'is-open' if open_session }}" aria-label="{{ 'Jornada abierta' if open_session else 'Jornada cerrada' }}"></span>
         </div>
+
+        <header class="app-topbar" data-app-topbar>
+          <div class="topbar-context" aria-label="Contexto actual">
+            <strong>AMON ERP</strong><span aria-hidden="true"></span><small>The Best Burger</small>
+          </div>
+          <div class="topbar-tools">
+            {% include 'partials/theme_control.html' %}
+            <div class="account-control">{% include 'auth/controls.html' %}</div>
+          </div>
+        </header>
 
         <div class="content-frame">
           <header class="page-header">
@@ -134,6 +155,20 @@
         <div class="dialog-actions">
           <button class="button button-secondary" value="cancel">Cancelar</button>
           <button class="button button-danger" value="confirm">Eliminar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="delete-dialog confirm-dialog" id="confirmDialog" aria-labelledby="confirmTitle">
+      <form method="dialog" class="delete-dialog-card">
+        <div class="dialog-icon dialog-icon-confirm" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 1-9 9 9 9 0 0 1 9-9Z"/><path d="m8 12 2.5 2.5L16 9"/></svg>
+        </div>
+        <h2 id="confirmTitle">Confirmar acción</h2>
+        <p data-confirm-message>Revisa la acción antes de continuar.</p>
+        <div class="dialog-actions">
+          <button class="button button-secondary" value="cancel">Cancelar</button>
+          <button class="button button-primary" value="confirm">Confirmar</button>
         </div>
       </form>
     </dialog>

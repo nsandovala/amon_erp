@@ -11,7 +11,8 @@
   <a class="button button-compact button-secondary" href="#session-history">Revisar asociación histórica</a>
 </div>
 {% endif %}
-<section class="section-card page-form" id="current-session-action">
+<section class="session-operation-grid" aria-label="Operación y resumen de jornada actual">
+<section class="section-card page-form session-operation-card" id="current-session-action">
   <div class="section-heading">
     <div><p class="section-kicker">Operación actual</p><h2>{{ 'Cerrar jornada' if current_session else 'Abrir jornada' }}</h2></div>
   </div>
@@ -50,7 +51,7 @@
   {% endif %}
 </section>
 
-<section class="section-card">
+<section class="section-card session-current-card">
   <div class="section-heading"><div><p class="section-kicker">Señal operativa</p><h2>Resumen de jornada actual</h2></div></div>
   {% if current_session %}
     <div class="summary-grid">
@@ -68,15 +69,16 @@
   {% else %}
     <div class="empty-state">
       <strong>No hay jornada abierta.</strong>
-      <span>Abre una jornada para asociar automáticamente ventas y gastos operacionales.</span>
+      <span>Abre una jornada para comenzar a registrar la operación.</span>
     </div>
   {% endif %}
+</section>
 </section>
 
 <section class="section-card" id="session-history">
   <div class="section-heading"><div><p class="section-kicker">Trazabilidad</p><h2>Historial de jornadas</h2></div><span class="muted">{{ session_rows|length }} jornadas</span></div>
   {% if session_rows %}
-  <div class="table-wrap responsive-table session-history">
+  <div class="table-wrap table-scroll table-scroll-history responsive-table session-history">
     <table class="data-table">
       <thead>
         <tr>
@@ -92,7 +94,7 @@
           {% set metrics = item.metrics %}
           {% set cross_day = session.closed_at and session.closed_at.date() != session.opened_at.date() %}
           {% set anomalous = metrics.is_anomalous_duration %}
-          <tr {% if anomalous %}class="anomalous-duration"{% endif %}>
+          <tr class="mobile-record-card{% if anomalous %} anomalous-duration{% endif %}">
             <td data-label="Fecha">{{ session.business_date|date_cl }}</td>
             <td data-label="Apertura">{{ session.opened_at.strftime('%H:%M') }}</td>
             <td data-label="Cierre">

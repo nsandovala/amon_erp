@@ -4,6 +4,7 @@
 {% block page_description %}<p class="page-description">Registra ingresos y revisa el detalle del periodo seleccionado.</p>{% endblock %}
 
 {% block content %}
+<section class="sales-top-grid" aria-label="Registro y resumen de ventas">
 <section class="section-card page-form" id="new-sale">
   <div class="section-heading"><div><p class="section-kicker">Nuevo movimiento</p><h2>Agregar venta</h2></div></div>
   {% include "partials/errors.html" %}
@@ -20,7 +21,7 @@
   </form>
 </section>
 
-<section class="section-card">
+<section class="section-card sales-summary-card">
   <div class="section-heading">
     <div><p class="section-kicker">Periodo filtrado</p><h2>Resumen de ventas</h2></div>
     <strong class="amount-green total-amount financial-amount">{{ total|clp }}</strong>
@@ -33,11 +34,12 @@
     <button class="button button-secondary" type="submit">Aplicar filtros</button>
   </form>
 </section>
+</section>
 
 <section class="section-card">
   <div class="section-heading"><div><p class="section-kicker">Registro</p><h2>Historial de ventas</h2></div><span class="muted">{{ sales|length }} movimientos</span></div>
   {% if sales %}
-    <div class="table-wrap responsive-table">
+    <div class="table-wrap table-scroll table-scroll-history responsive-table">
       <table class="data-table">
         <thead><tr><th>Fecha</th><th>Descripción</th><th>Pago</th><th>Canal</th><th class="amount-cell">Monto</th><th>Estado</th><th>Acciones</th></tr></thead>
         <tbody>
