@@ -6,6 +6,7 @@ from models.sale import Sale
 from models.work_session import WorkSession
 from routes import CHANNEL_LABELS, PAYMENT_LABELS, STATUS_LABELS, TYPE_LABELS
 from services.work_sessions import calculate_work_session_metrics
+from services.tenancy import scope_query
 
 
 trash_bp = Blueprint("trash", __name__, url_prefix="/papelera")
@@ -15,7 +16,7 @@ trash_bp = Blueprint("trash", __name__, url_prefix="/papelera")
 def index():
     items = []
 
-    for sale in db_session.query(Sale).filter(Sale.deleted_at.is_not(None)).all():
+    for sale in scope_query(db_session.query(Sale), Sale, required=True).filter(Sale.deleted_at.is_not(None)).all():
         items.append({
             "kind": "sale",
             "label": "Venta",
@@ -29,7 +30,7 @@ def index():
             "id": sale.id,
         })
 
-    for expense in db_session.query(Expense).filter(Expense.deleted_at.is_not(None)).all():
+    for expense in scope_query(db_session.query(Expense), Expense, required=True).filter(Expense.deleted_at.is_not(None)).all():
         items.append({
             "kind": "investment" if expense.expense_type == "investment" else "expense",
             "label": TYPE_LABELS[expense.expense_type],
@@ -43,7 +44,7 @@ def index():
             "id": expense.id,
         })
 
-    for work_session in db_session.query(WorkSession).filter(WorkSession.deleted_at.is_not(None)).all():
+    for work_session in scope_query(db_session.query(WorkSession), WorkSession, required=True).filter(WorkSession.deleted_at.is_not(None)).all():
         metrics = calculate_work_session_metrics(work_session)
         items.append({
             "kind": "session",

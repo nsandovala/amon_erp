@@ -1,4 +1,4 @@
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
 from models import db_session, now_santiago
 from models.work_session import WorkSession
@@ -11,6 +11,7 @@ from services.work_sessions import (
     historical_movement_preview,
     session_balance_status,
 )
+from services.tenancy import apply_tenant_fields, scope_query, scoped_resource_or_404
 
 
 sessions_bp = Blueprint("sessions", __name__, url_prefix="/jornadas")
@@ -33,6 +34,7 @@ def index():
                 notes=(request.form.get("notes") or "").strip() or None,
                 status="open",
             )
+            apply_tenant_fields(work_session)
             db_session.add(work_session)
             if commit_or_flash("Jornada abierta correctamente."):
                 return redirect(url_for("sessions.index"))
@@ -45,7 +47,7 @@ def index():
 
 @sessions_bp.route("/<int:session_id>/cerrar", methods=["POST"])
 def close(session_id):
-    work_session = db_session.get(WorkSession, session_id)
+    work_session = scoped_resource_or_404(WorkSession, session_id)
     if not work_session or work_session.deleted_at is not None or work_session.status != "open":
         flash("Solo se puede cerrar una jornada abierta.", "error")
         return redirect(url_for("sessions.index"))
@@ -76,7 +78,7 @@ def close(session_id):
 
 @sessions_bp.route("/<int:session_id>/editar", methods=["GET", "POST"])
 def edit(session_id):
-    work_session = db_session.get(WorkSession, session_id) or abort(404)
+    work_session = scoped_resource_or_404(WorkSession, session_id)
     if work_session.deleted_at is not None:
         abort(404)
     errors = []
@@ -130,7 +132,7 @@ def edit(session_id):
 
 @sessions_bp.route("/<int:session_id>/asociar-movimientos", methods=["GET", "POST"])
 def associate_movements(session_id):
-    work_session = db_session.get(WorkSession, session_id) or abort(404)
+    work_session = scoped_resource_or_404(WorkSession, session_id)
     if work_session.deleted_at is not None or work_session.closed_at is None:
         flash("La reconstrucción histórica solo está disponible para jornadas cerradas.", "error")
         return redirect(url_for("sessions.index"))
@@ -149,8 +151,8 @@ def associate_movements(session_id):
 
 @sessions_bp.route("/<int:session_id>/archivar", methods=["POST"])
 def archive(session_id):
-    work_session = db_session.get(WorkSession, session_id)
-    if not work_session or work_session.deleted_at is not None:
+    work_session = scoped_resource_or_404(WorkSession, session_id)
+    if work_session.deleted_at is not None:
         flash("No se encontró la jornada.", "error")
         return redirect(url_for("sessions.index"))
     if work_session.status == "open":
@@ -163,10 +165,7 @@ def archive(session_id):
 
 @sessions_bp.route("/<int:session_id>/eliminar", methods=["POST"])
 def delete(session_id):
-    work_session = db_session.get(WorkSession, session_id)
-    if not work_session:
-        flash("No se encontró la jornada.", "error")
-        return redirect(url_for("sessions.index"))
+    work_session = scoped_resource_or_404(WorkSession, session_id)
     if work_session.status == "open":
         flash("Cierra la jornada antes de eliminarla.", "error")
         return redirect(url_for("sessions.index"))
@@ -178,10 +177,7 @@ def delete(session_id):
 
 @sessions_bp.route("/<int:session_id>/restaurar", methods=["POST"])
 def restore(session_id):
-    work_session = db_session.get(WorkSession, session_id)
-    if not work_session:
-        flash("No se encontró la jornada.", "error")
-        return redirect(url_for("trash.index"))
+    work_session = scoped_resource_or_404(WorkSession, session_id)
     work_session.deleted_at = None
     commit_or_flash("Jornada restaurada correctamente.")
     return redirect(request.referrer or url_for("trash.index"))
@@ -189,7 +185,7 @@ def restore(session_id):
 
 def _render_index(errors, field_errors, form):
     sessions = (
-        db_session.query(WorkSession)
+        scope_query(db_session.query(WorkSession), WorkSession, required=True)
         .filter(WorkSession.deleted_at.is_(None))
         .order_by(WorkSession.opened_at.desc())
         .all()
@@ -206,7 +202,10 @@ def _render_index(errors, field_errors, form):
         })
     open_session = active_work_session()
     open_metrics = calculate_work_session_metrics(open_session) if open_session else None
-    unassociated_count = count_unassociated_active_movements()
+    unassociated_count = count_unassociated_active_movements(
+        getattr(g, "organization_id", None),
+        getattr(g, "branch_id", None),
+    )
     return render_template(
         "sessions/index.html",
         session_rows=session_rows,

@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Column, Date, DateTime, Index, Integer, String, Text, text
+from sqlalchemy import CheckConstraint, Column, Date, DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.orm import relationship
 
 from models import Base, now_santiago
@@ -11,6 +11,8 @@ class WorkSession(Base):
     __tablename__ = "work_sessions"
 
     id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True, index=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     business_date = Column(Date, nullable=False, index=True)
     opened_at = Column(DateTime, nullable=False, default=now_santiago, index=True)
     closed_at = Column(DateTime, nullable=True)
@@ -26,6 +28,8 @@ class WorkSession(Base):
 
     sales = relationship("Sale", back_populates="work_session")
     expenses = relationship("Expense", back_populates="work_session")
+    organization = relationship("Organization")
+    branch = relationship("Branch")
 
     __table_args__ = (
         CheckConstraint("opening_cash >= 0", name="ck_work_session_opening_cash_non_negative"),
@@ -36,10 +40,11 @@ class WorkSession(Base):
         ),
         CheckConstraint("status IN ('open', 'closed', 'archived')", name="ck_work_session_status"),
         Index(
-            "uq_work_sessions_single_open",
-            "status",
+            "uq_work_sessions_open_per_branch",
+            "organization_id",
+            "branch_id",
             unique=True,
-            sqlite_where=text("status = 'open'"),
-            postgresql_where=text("status = 'open'"),
+            sqlite_where=text("status = 'open' AND deleted_at IS NULL"),
+            postgresql_where=text("status = 'open' AND deleted_at IS NULL"),
         ),
     )

@@ -33,6 +33,8 @@ def calculate_work_session_metrics(work_session):
     sales = (
         db_session.query(Sale)
         .filter(
+            Sale.organization_id == work_session.organization_id,
+            Sale.branch_id == work_session.branch_id,
             Sale.work_session_id == work_session.id,
             Sale.status == "active",
             Sale.deleted_at.is_(None),
@@ -42,6 +44,8 @@ def calculate_work_session_metrics(work_session):
     expenses = (
         db_session.query(Expense)
         .filter(
+            Expense.organization_id == work_session.organization_id,
+            Expense.branch_id == work_session.branch_id,
             Expense.work_session_id == work_session.id,
             Expense.status == "active",
             Expense.deleted_at.is_(None),
@@ -94,9 +98,14 @@ def session_balance_status(work_session, metrics):
     return "shortage", "Cerrada con faltante"
 
 
-def count_unassociated_active_movements():
+def count_unassociated_active_movements(organization_id=None, branch_id=None):
+    sales_query = db_session.query(Sale)
+    expenses_query = db_session.query(Expense)
+    if organization_id is not None:
+        sales_query = sales_query.filter(Sale.organization_id == organization_id, Sale.branch_id == branch_id)
+        expenses_query = expenses_query.filter(Expense.organization_id == organization_id, Expense.branch_id == branch_id)
     sales_count = (
-        db_session.query(Sale)
+        sales_query
         .filter(
             Sale.work_session_id.is_(None),
             Sale.status == "active",
@@ -105,7 +114,7 @@ def count_unassociated_active_movements():
         .count()
     )
     expenses_count = (
-        db_session.query(Expense)
+        expenses_query
         .filter(
             Expense.work_session_id.is_(None),
             Expense.status == "active",

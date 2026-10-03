@@ -21,6 +21,7 @@ from routes import (
     parse_int,
     parse_split_datetime,
 )
+from services.tenancy import apply_tenant_fields, scope_query, scoped_resource_or_404
 
 
 expenses_bp = Blueprint("expenses", __name__, url_prefix="/gastos")
@@ -34,6 +35,7 @@ def index():
     if request.method == "POST":
         try:
             expense = _expense_from_form(form)
+            apply_tenant_fields(expense)
             db_session.add(expense)
             if commit_or_flash("Gasto guardado correctamente."):
                 return redirect(url_for("expenses.index"))
@@ -41,7 +43,7 @@ def index():
             db_session.rollback()
             add_form_error(errors, field_errors, exc)
 
-    query = db_session.query(Expense).filter(Expense.deleted_at.is_(None)).order_by(Expense.occurred_at.desc())
+    query = scope_query(db_session.query(Expense), Expense, required=True).filter(Expense.deleted_at.is_(None)).order_by(Expense.occurred_at.desc())
     category = request.args.get("category")
     expense_type = request.args.get("expense_type")
     start = request.args.get("start")
@@ -81,7 +83,7 @@ def index():
 
 @expenses_bp.route("/<int:expense_id>")
 def detail(expense_id):
-    expense = db_session.get(Expense, expense_id) or abort(404)
+    expense = scoped_resource_or_404(Expense, expense_id)
     if expense.deleted_at is not None:
         abort(404)
     return render_template("expenses/detail.html", expense=expense, payment_labels=PAYMENT_LABELS, status_labels=STATUS_LABELS, type_labels=TYPE_LABELS)
@@ -89,7 +91,7 @@ def detail(expense_id):
 
 @expenses_bp.route("/<int:expense_id>/editar", methods=["GET", "POST"])
 def edit(expense_id):
-    expense = db_session.get(Expense, expense_id) or abort(404)
+    expense = scoped_resource_or_404(Expense, expense_id)
     if expense.deleted_at is not None:
         abort(404)
     errors = []
@@ -131,7 +133,7 @@ def edit(expense_id):
 
 @expenses_bp.route("/<int:expense_id>/archivar", methods=["POST"])
 def archive(expense_id):
-    expense = db_session.get(Expense, expense_id) or abort(404)
+    expense = scoped_resource_or_404(Expense, expense_id)
     if expense.deleted_at is not None:
         abort(404)
     expense.status = "archived"
@@ -141,7 +143,7 @@ def archive(expense_id):
 
 @expenses_bp.route("/<int:expense_id>/eliminar", methods=["POST"])
 def delete(expense_id):
-    expense = db_session.get(Expense, expense_id) or abort(404)
+    expense = scoped_resource_or_404(Expense, expense_id)
     if expense.deleted_at is None:
         expense.deleted_at = now_santiago()
         commit_or_flash("Movimiento enviado a la papelera.")
@@ -150,7 +152,7 @@ def delete(expense_id):
 
 @expenses_bp.route("/<int:expense_id>/restaurar", methods=["POST"])
 def restore(expense_id):
-    expense = db_session.get(Expense, expense_id) or abort(404)
+    expense = scoped_resource_or_404(Expense, expense_id)
     expense.deleted_at = None
     commit_or_flash("Movimiento restaurado correctamente.")
     return redirect(request.referrer or url_for("trash.index"))

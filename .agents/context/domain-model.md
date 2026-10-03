@@ -1,6 +1,6 @@
 # Modelo de dominio
 
-## Entidades actuales (F2.0)
+## Entidades actuales (F2)
 
 ### Organization (Organización)
 
@@ -23,12 +23,14 @@
 ### Sale (Venta)
 
 - Monto, método de pago, fecha, jornada asociada.
+- Pertenece obligatoriamente a una Organization y Branch en bases migradas.
 - Puede ser efectivo, transferencia o tarjeta.
 - Soft delete.
 
 ### Expense (Gasto)
 
 - Monto, categoría, método de pago, fecha, jornada asociada.
+- Pertenece obligatoriamente a una Organization y Branch en bases migradas.
 - Diferenciado entre operacional e inversión.
 - Soft delete.
 
@@ -38,16 +40,21 @@
 - Diferencia de caja.
 - Estado: abierta, cerrada, archivada.
 - Auditoría de ediciones.
+- Pertenece a una Organization y Branch; solo puede existir una jornada abierta no eliminada por ese par.
 
 ### AuditLog (Auditoría)
 
 - Registro de cambios críticos en jornadas y movimientos.
-- Acción, usuario (futuro), entidad, detalle, timestamp.
+- Acción, usuario Clerk resuelto, organización, sucursal, entidad, detalle, timestamp.
 
 ## Relaciones principales
 
 - `Branch.organization_id` -> `Organization.id`
 - `Membership.organization_id` -> `Organization.id`
+- `Sale.organization_id` / `Sale.branch_id` -> `Organization` / `Branch`
+- `Expense.organization_id` / `Expense.branch_id` -> `Organization` / `Branch`
+- `WorkSession.organization_id` / `WorkSession.branch_id` -> `Organization` / `Branch`
+- `AuditLog.organization_id` / `AuditLog.branch_id` -> `Organization` / `Branch`
 - `Sale.work_session_id` -> `WorkSession.id`
 - `Expense.work_session_id` -> `WorkSession.id`
 - `AuditLog` referencia entidades por tipo e ID (polimórfico lógico).
@@ -56,7 +63,6 @@
 
 No crear en código hasta que su fase correspondiente esté activa:
 
-- Tenant boundaries explícitos en `Sale`, `Expense`, `WorkSession` y `AuditLog`, con aislamiento de consulta y de acciones por organización/sucursal (F2.1).
 - **Project**: agrupación transversal.
 - **Account**: cuentas bancarias y medios de pago.
 - **Supplier**: proveedores.

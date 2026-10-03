@@ -1,7 +1,7 @@
 import csv
 import io
 
-from flask import Blueprint, Response, render_template, request, url_for
+from flask import Blueprint, Response, g, render_template, request, url_for
 
 from models.sale import PAYMENT_METHODS
 from routes import CHANNEL_LABELS, PAYMENT_LABELS, STATUS_LABELS, TYPE_LABELS
@@ -15,7 +15,7 @@ history_bp = Blueprint("history", __name__, url_prefix="/historial")
 def index():
     errors = []
     try:
-        filters, movements = load_history(request.args)
+        filters, movements = load_history(request.args, organization_id=getattr(g, "organization_id", None), branch_id=getattr(g, "branch_id", None))
     except HistoryFilterError as exc:
         errors.append(str(exc))
         filters = exc.filters
@@ -42,7 +42,7 @@ def _spreadsheet_safe(value):
 @history_bp.route("/exportar.csv")
 def export_csv():
     try:
-        filters, movements = load_history(request.args)
+        filters, movements = load_history(request.args, organization_id=getattr(g, "organization_id", None), branch_id=getattr(g, "branch_id", None))
     except HistoryFilterError as exc:
         return Response(str(exc), status=400, content_type="text/plain; charset=utf-8")
 

@@ -74,24 +74,24 @@
 - Chart.js responde a cambios de tema sin recargar la página.
 - Base de impresión, movimiento reducido y estados de carga preparados en CSS.
 
-## F2.0 Organizations Foundation implementado
+## F2 — Organizations and tenant isolation implementado
 
 - Modelos locales `Organization`, `Branch` y `Membership` con relaciones, estados, roles mínimos y restricciones de base de datos.
 - Bootstrap idempotente de The Best Burger y su sucursal Principal, sin modificar registros financieros históricos.
 - Clerk se mantiene como identidad solamente; no se confían claims de organizaciones ni roles de Clerk.
-- Alembic es el candidato para migraciones versionadas SQLite/PostgreSQL, pero no se agregó porque requiere decisión explícita para incorporar una dependencia.
-- El siguiente paso debe añadir límites de tenant explícitos a registros financieros con una migración versionada y backfill validado.
+- La revisión Alembic `20261003_01` crea/asegura el dominio, hace backfill verificable de The Best Burger / Principal y endurece la propiedad tenant de registros financieros desplegados.
+- Las rutas, agregaciones, exportaciones y acciones por ID resuelven una membresía local y aplican scope servidor por organización/sucursal.
+- Existe un CLI administrativo explícito e idempotente para la primera membresía (`flask tenant-grant`); no se aprovisionan owners automáticamente.
 
 ## Limitaciones actuales
 
-- No hay aún aislamiento efectivo de datos financieros por tenant: `Sale`, `Expense`, `WorkSession` y `AuditLog` todavía no tienen tenant foreign keys.
 - No proveedores.
 - No cuentas bancarias.
 - No Compraquí.
 - No conciliación bancaria.
 - No IVA avanzado.
 - No deploy a Render.
-- Clerk Auth Foundation existe; no hay RBAC.
+- Clerk Auth Foundation existe; los roles locales mínimos se resuelven por Membership, sin RBAC de interfaz adicional.
 - No migración de datos SQLite a Neon.
 - No integración con AMON Shop.
 - No estrategia productiva de backup PostgreSQL definida todavía.
@@ -101,8 +101,6 @@
 
 - Rama activa: `feature/f2-organizations-foundation`.
 - Baseline: `310f22d merge: integrate Clerk auth foundation` con 111 tests.
-- F2.0 agrega 8 pruebas de dominio; total actual: 167.
+- F2 incluye migración aislada y cobertura A/B de aislamiento de tenant.
 
 ## Próxima fase planificada
-
-- F2.1: incorporar migraciones versionadas y tenant foreign keys para datos financieros, con backfill seguro de The Best Burger / Principal.

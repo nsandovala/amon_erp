@@ -47,11 +47,9 @@
 
 ## F2 — Organizations Foundation
 
-- **Estado**: F2.0 implementado; aislamiento financiero pendiente.
+- **Estado**: F2.1/F2.2 implementado; límites tenant, migración versionada y scope servidor activos.
 - Organization, Branch y Membership son entidades propias del ERP.
 - Clerk valida identidad solamente; no entrega roles ni autorización de tenant.
-- F2.1: adoptar migraciones versionadas y añadir `organization_id` / `branch_id` explícitos a Sale, Expense, WorkSession y AuditLog; backfill de The Best Burger / Principal con validación de conteos.
-- F2.2: aplicar tenant scope servidor, sesión activa y RBAC mínimo en rutas, agregaciones, exportaciones y acciones por ID.
 
 ## F3 — Smart Inbox + Documents
 

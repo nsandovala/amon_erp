@@ -25,8 +25,8 @@ Control financiero operativo del food truck y The Best Burger SpA.
 
 - **Producto**: AMON ERP.
 - **Organización activa**: The Best Burger.
-- F2.0 crea la base local de Organization, Branch y Membership. Clerk permanece solo como proveedor de identidad.
-- La selección de organización, las políticas RBAC y el aislamiento de movimientos financieros se implementarán después de la migración explícita de tenant boundaries.
+- F2 crea la base local de Organization, Branch y Membership, más límites de tenant en los movimientos financieros. Clerk permanece solo como proveedor de identidad.
+- AMON Shop y AMON ERP usarán bases de datos e IDs independientes; cualquier evento futuro empleará identificadores externos estables y un mapeo ERP, nunca IDs internos ni escrituras directas Firestore -> Neon.
 
 ## Usuarios principales
 

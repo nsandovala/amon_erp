@@ -13,6 +13,7 @@ from routes import (
     parse_int,
     parse_split_datetime,
 )
+from services.tenancy import apply_tenant_fields, scope_query, scoped_resource_or_404
 
 
 sales_bp = Blueprint("sales", __name__, url_prefix="/ventas")
@@ -26,6 +27,7 @@ def index():
     if request.method == "POST":
         try:
             sale = _sale_from_form(form)
+            apply_tenant_fields(sale)
             db_session.add(sale)
             if commit_or_flash("Venta guardada correctamente."):
                 return redirect(url_for("sales.index"))
@@ -33,7 +35,7 @@ def index():
             db_session.rollback()
             add_form_error(errors, field_errors, exc)
 
-    query = db_session.query(Sale).filter(Sale.deleted_at.is_(None)).order_by(Sale.occurred_at.desc())
+    query = scope_query(db_session.query(Sale), Sale, required=True).filter(Sale.deleted_at.is_(None)).order_by(Sale.occurred_at.desc())
     start = request.args.get("start")
     end = request.args.get("end")
     payment = request.args.get("payment_method")
@@ -63,7 +65,7 @@ def index():
 
 @sales_bp.route("/<int:sale_id>")
 def detail(sale_id):
-    sale = db_session.get(Sale, sale_id) or abort(404)
+    sale = scoped_resource_or_404(Sale, sale_id)
     if sale.deleted_at is not None:
         abort(404)
     return render_template("sales/detail.html", sale=sale, payment_labels=PAYMENT_LABELS, channel_labels=CHANNEL_LABELS, status_labels=STATUS_LABELS)
@@ -71,7 +73,7 @@ def detail(sale_id):
 
 @sales_bp.route("/<int:sale_id>/editar", methods=["GET", "POST"])
 def edit(sale_id):
-    sale = db_session.get(Sale, sale_id) or abort(404)
+    sale = scoped_resource_or_404(Sale, sale_id)
     if sale.deleted_at is not None:
         abort(404)
     errors = []
@@ -99,7 +101,7 @@ def edit(sale_id):
 
 @sales_bp.route("/<int:sale_id>/archivar", methods=["POST"])
 def archive(sale_id):
-    sale = db_session.get(Sale, sale_id) or abort(404)
+    sale = scoped_resource_or_404(Sale, sale_id)
     if sale.deleted_at is not None:
         abort(404)
     sale.status = "archived"
@@ -109,7 +111,7 @@ def archive(sale_id):
 
 @sales_bp.route("/<int:sale_id>/eliminar", methods=["POST"])
 def delete(sale_id):
-    sale = db_session.get(Sale, sale_id) or abort(404)
+    sale = scoped_resource_or_404(Sale, sale_id)
     if sale.deleted_at is None:
         sale.deleted_at = now_santiago()
         commit_or_flash("Venta enviada a la papelera.")
@@ -118,7 +120,7 @@ def delete(sale_id):
 
 @sales_bp.route("/<int:sale_id>/restaurar", methods=["POST"])
 def restore(sale_id):
-    sale = db_session.get(Sale, sale_id) or abort(404)
+    sale = scoped_resource_or_404(Sale, sale_id)
     sale.deleted_at = None
     commit_or_flash("Venta restaurada correctamente.")
     return redirect(request.referrer or url_for("trash.index"))

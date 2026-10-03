@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE="${1:---quick}"
-if [[ -n "${PYTHON:-}" ]]; then
-  PYTHON="$PYTHON"
+if [[ -n "${VIRTUAL_ENV:-}" && -x "$VIRTUAL_ENV/bin/python" ]]; then
+  PYTHON="$VIRTUAL_ENV/bin/python"
 elif [[ -x "$ROOT_DIR/.venv/bin/python" ]]; then
   PYTHON="$ROOT_DIR/.venv/bin/python"
 else
@@ -18,6 +18,7 @@ fi
 
 cd "$ROOT_DIR"
 
+echo "[qa] python: $PYTHON"
 printf '[qa] tests\n'
 "$PYTHON" -m pytest -q
 
