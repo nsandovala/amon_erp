@@ -66,14 +66,17 @@
 - SQLite conserva `check_same_thread=False` y `PRAGMA foreign_keys=ON`.
 - PostgreSQL usa `pool_pre_ping=True` y no recibe argumentos exclusivos de SQLite.
 - La unicidad de una sola jornada `open` se protege con índice parcial en ambos dialectos.
-- `Base.metadata.create_all()` se acepta únicamente para bootstrap inicial de una base vacía. La evolución futura requerirá migraciones versionadas.
+- `Base.metadata.create_all()` se acepta únicamente para bootstrap inicial de una base vacía. La evolución futura requiere migraciones versionadas.
+- F2.0 define `Organization`, `Branch` y `Membership` como tenancy local. Clerk continúa validando únicamente identidad; sus claims de organización o rol no autorizan acciones del ERP.
+- La adopción de Alembic se evaluó como adecuada para SQLite y PostgreSQL/Neon, pero requiere una dependencia nueva y decisión explícita antes de incorporarla. No se realizan migraciones automáticas de datos productivos.
+- Antes de añadir tenant foreign keys a registros financieros, la migración debe crear The Best Burger y Principal, hacer backfill verificable, validar conteos y solo después endurecer restricciones e índices.
 - Los ajustes legacy `ensure_soft_delete_columns` y `ensure_work_session_cash_columns` se ejecutan solo para SQLite.
 
 ## Tests
 
 - Tests unitarios e integración con pytest.
 - Toda lógica financiera nueva requiere tests.
-- 155 tests verdes.
+- 167 tests verdes.
 
 ## Backups y migraciones
 

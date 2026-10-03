@@ -13,7 +13,7 @@
 
 ## Tests
 
-- **155 pruebas verdes**.
+- **167 pruebas verdes**.
 - Suite: pytest.
 
 ## Funcionalidades entregadas en F0
@@ -74,9 +74,17 @@
 - Chart.js responde a cambios de tema sin recargar la página.
 - Base de impresión, movimiento reducido y estados de carga preparados en CSS.
 
+## F2.0 Organizations Foundation implementado
+
+- Modelos locales `Organization`, `Branch` y `Membership` con relaciones, estados, roles mínimos y restricciones de base de datos.
+- Bootstrap idempotente de The Best Burger y su sucursal Principal, sin modificar registros financieros históricos.
+- Clerk se mantiene como identidad solamente; no se confían claims de organizaciones ni roles de Clerk.
+- Alembic es el candidato para migraciones versionadas SQLite/PostgreSQL, pero no se agregó porque requiere decisión explícita para incorporar una dependencia.
+- El siguiente paso debe añadir límites de tenant explícitos a registros financieros con una migración versionada y backfill validado.
+
 ## Limitaciones actuales
 
-- No multiempresa.
+- No hay aún aislamiento efectivo de datos financieros por tenant: `Sale`, `Expense`, `WorkSession` y `AuditLog` todavía no tienen tenant foreign keys.
 - No proveedores.
 - No cuentas bancarias.
 - No Compraquí.
@@ -91,12 +99,10 @@
 
 ## Estado del repositorio
 
-- Rama activa: `feature/f1.3-product-polish`.
+- Rama activa: `feature/f2-organizations-foundation`.
 - Baseline: `310f22d merge: integrate Clerk auth foundation` con 111 tests.
-- F1.1, F1.1.1, F1.1.2 y F1.3 agregan 44 tests; total actual: 155.
-- Hay cambios de F1.3 sin commit durante esta tarea.
+- F2.0 agrega 8 pruebas de dominio; total actual: 167.
 
 ## Próxima fase planificada
 
-- Diseñar la migración de datos SQLite a Neon como fase separada.
-- Preparar el deploy a Render sin integrar todavía AMON Shop.
+- F2.1: incorporar migraciones versionadas y tenant foreign keys para datos financieros, con backfill seguro de The Best Burger / Principal.

@@ -48,7 +48,10 @@ def get_engine():
 
 def create_tables():
     from models.audit_log import AuditLog  # noqa: F401
+    from models.branch import Branch  # noqa: F401
     from models.expense import Expense  # noqa: F401
+    from models.membership import Membership  # noqa: F401
+    from models.organization import Organization  # noqa: F401
     from models.sale import Sale  # noqa: F401
     from models.work_session import WorkSession  # noqa: F401
 
