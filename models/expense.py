@@ -73,6 +73,8 @@ class Expense(Base):
     __tablename__ = "expenses"
 
     id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True, index=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     work_session_id = Column(Integer, ForeignKey("work_sessions.id"), nullable=True, index=True)
     occurred_at = Column(DateTime, nullable=False, default=now_santiago, index=True)
     amount = Column(Integer, nullable=False)
@@ -88,6 +90,8 @@ class Expense(Base):
     deleted_at = Column(DateTime, nullable=True, index=True)
 
     work_session = relationship("WorkSession", back_populates="expenses")
+    organization = relationship("Organization")
+    branch = relationship("Branch")
 
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_expense_amount_positive"),

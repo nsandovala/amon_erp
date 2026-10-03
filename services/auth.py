@@ -10,6 +10,8 @@ from clerk_backend_api.security import authenticate_request
 from clerk_backend_api.security.types import AuthenticateRequestOptions
 from flask import abort, g, redirect, render_template, request, url_for
 
+from services.tenancy import TenantResolutionError, resolve_request_tenant
+
 
 def frontend_domain(key):
     try:
@@ -35,10 +37,18 @@ def init_auth(app):
     def authenticate():
         g.user_id = None
         g.erp_access = False
+        g.membership = None
+        g.erp_role = None
+        g.organization = None
+        g.organization_id = None
+        g.branch = None
+        g.branch_id = None
+        g.tenant_enforced = True
         if request.endpoint == 'health':
             return None
         if app.testing and app.config['AUTH_TEST_BYPASS']:
             g.erp_access = True
+            g.tenant_enforced = False
             return None
         if request.endpoint == 'static':
             return None
@@ -63,6 +73,13 @@ def init_auth(app):
                 and payload.get('azp') in app.config['CLERK_AUTHORIZED_PARTIES']):
             g.user_id = payload['sub']
             g.erp_access = g.user_id in app.config['AMON_ALLOWED_USER_IDS']
+            if g.erp_access:
+                try:
+                    resolve_request_tenant(g.user_id)
+                except TenantResolutionError:
+                    # The legacy allowlist authenticates an identity but never
+                    # grants tenant access without an active local membership.
+                    g.erp_access = False
         if request.endpoint == 'auth_access':
             if g.user_id and g.erp_access:
                 return redirect(url_for('dashboard.index'))

@@ -13,7 +13,7 @@
 
 ## Tests
 
-- **155 pruebas verdes**.
+- **167 pruebas verdes**.
 - Suite: pytest.
 
 ## Funcionalidades entregadas en F0
@@ -74,16 +74,24 @@
 - Chart.js responde a cambios de tema sin recargar la página.
 - Base de impresión, movimiento reducido y estados de carga preparados en CSS.
 
+## F2 — Organizations and tenant isolation implementado
+
+- Modelos locales `Organization`, `Branch` y `Membership` con relaciones, estados, roles mínimos y restricciones de base de datos.
+- Bootstrap idempotente de The Best Burger y su sucursal Principal, sin modificar registros financieros históricos.
+- Clerk se mantiene como identidad solamente; no se confían claims de organizaciones ni roles de Clerk.
+- La revisión Alembic `20261003_01` crea/asegura el dominio, hace backfill verificable de The Best Burger / Principal y endurece la propiedad tenant de registros financieros desplegados.
+- Las rutas, agregaciones, exportaciones y acciones por ID resuelven una membresía local y aplican scope servidor por organización/sucursal.
+- Existe un CLI administrativo explícito e idempotente para la primera membresía (`flask tenant-grant`); no se aprovisionan owners automáticamente.
+
 ## Limitaciones actuales
 
-- No multiempresa.
 - No proveedores.
 - No cuentas bancarias.
 - No Compraquí.
 - No conciliación bancaria.
 - No IVA avanzado.
 - No deploy a Render.
-- Clerk Auth Foundation existe; no hay RBAC.
+- Clerk Auth Foundation existe; los roles locales mínimos se resuelven por Membership, sin RBAC de interfaz adicional.
 - No migración de datos SQLite a Neon.
 - No integración con AMON Shop.
 - No estrategia productiva de backup PostgreSQL definida todavía.
@@ -91,12 +99,8 @@
 
 ## Estado del repositorio
 
-- Rama activa: `feature/f1.3-product-polish`.
+- Rama activa: `feature/f2-organizations-foundation`.
 - Baseline: `310f22d merge: integrate Clerk auth foundation` con 111 tests.
-- F1.1, F1.1.1, F1.1.2 y F1.3 agregan 44 tests; total actual: 155.
-- Hay cambios de F1.3 sin commit durante esta tarea.
+- F2 incluye migración aislada y cobertura A/B de aislamiento de tenant.
 
 ## Próxima fase planificada
-
-- Diseñar la migración de datos SQLite a Neon como fase separada.
-- Preparar el deploy a Render sin integrar todavía AMON Shop.

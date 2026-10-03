@@ -46,25 +46,33 @@ def date_bounds(period="today", start=None, end=None):
     )
 
 
-def _active_sales_between(start_dt, end_dt):
-    return (
+def _tenant_filter(query, model, organization_id=None, branch_id=None):
+    if organization_id is not None:
+        return query.filter(model.organization_id == organization_id, model.branch_id == branch_id)
+    return query
+
+
+def _active_sales_between(start_dt, end_dt, organization_id=None, branch_id=None):
+    return _tenant_filter(
         db_session.query(Sale)
         .filter(Sale.status == "active", Sale.deleted_at.is_(None), Sale.occurred_at >= start_dt, Sale.occurred_at <= end_dt)
+        , Sale, organization_id, branch_id
     )
 
 
-def _active_expenses_between(start_dt, end_dt):
-    return (
+def _active_expenses_between(start_dt, end_dt, organization_id=None, branch_id=None):
+    return _tenant_filter(
         db_session.query(Expense)
         .filter(Expense.status == "active", Expense.deleted_at.is_(None), Expense.occurred_at >= start_dt, Expense.occurred_at <= end_dt)
+        , Expense, organization_id, branch_id
     )
 
 
-def calculate_metrics(start_dt, end_dt):
-    sales = _active_sales_between(start_dt, end_dt).all()
-    expenses = _active_expenses_between(start_dt, end_dt).all()
+def calculate_metrics(start_dt, end_dt, organization_id=None, branch_id=None):
+    sales = _active_sales_between(start_dt, end_dt, organization_id, branch_id).all()
+    expenses = _active_expenses_between(start_dt, end_dt, organization_id, branch_id).all()
     sessions = (
-        db_session.query(WorkSession)
+        _tenant_filter(db_session.query(WorkSession), WorkSession, organization_id, branch_id)
         .filter(
             WorkSession.status.in_(["open", "closed"]),
             WorkSession.deleted_at.is_(None),
@@ -109,7 +117,7 @@ def calculate_metrics(start_dt, end_dt):
     }
 
 
-def sales_expenses_by_day(start_date, end_date):
+def sales_expenses_by_day(start_date, end_date, organization_id=None, branch_id=None):
     values = {}
     cursor = start_date
     while cursor <= end_date:
@@ -119,13 +127,13 @@ def sales_expenses_by_day(start_date, end_date):
     start_dt = datetime.combine(start_date, time.min)
     end_dt = datetime.combine(end_date, time.max.replace(microsecond=0))
     sales_rows = (
-        _active_sales_between(start_dt, end_dt)
+        _active_sales_between(start_dt, end_dt, organization_id, branch_id)
         .with_entities(func.date(Sale.occurred_at), func.sum(Sale.amount))
         .group_by(func.date(Sale.occurred_at))
         .all()
     )
     expense_rows = (
-        _active_expenses_between(start_dt, end_dt)
+        _active_expenses_between(start_dt, end_dt, organization_id, branch_id)
         .filter(Expense.expense_type == "operational")
         .with_entities(func.date(Expense.occurred_at), func.sum(Expense.amount))
         .group_by(func.date(Expense.occurred_at))
@@ -140,9 +148,9 @@ def sales_expenses_by_day(start_date, end_date):
     return list(values.values())
 
 
-def expenses_by_category(start_dt, end_dt):
+def expenses_by_category(start_dt, end_dt, organization_id=None, branch_id=None):
     rows = (
-        _active_expenses_between(start_dt, end_dt)
+        _active_expenses_between(start_dt, end_dt, organization_id, branch_id)
         .filter(Expense.expense_type == "operational")
         .with_entities(Expense.category, func.sum(Expense.amount))
         .group_by(Expense.category)
@@ -152,9 +160,9 @@ def expenses_by_category(start_dt, end_dt):
     return [{"category": category, "amount": int(amount or 0)} for category, amount in rows]
 
 
-def investments_by_category(start_dt, end_dt):
+def investments_by_category(start_dt, end_dt, organization_id=None, branch_id=None):
     rows = (
-        _active_expenses_between(start_dt, end_dt)
+        _active_expenses_between(start_dt, end_dt, organization_id, branch_id)
         .filter(Expense.expense_type == "investment")
         .with_entities(Expense.category, func.sum(Expense.amount))
         .group_by(Expense.category)
@@ -164,9 +172,9 @@ def investments_by_category(start_dt, end_dt):
     return [{"category": category, "amount": int(amount or 0)} for category, amount in rows]
 
 
-def latest_movements(limit=10):
-    sales = db_session.query(Sale).filter(Sale.status == "active", Sale.deleted_at.is_(None)).all()
-    expenses = db_session.query(Expense).filter(Expense.status == "active", Expense.deleted_at.is_(None)).all()
+def latest_movements(limit=10, organization_id=None, branch_id=None):
+    sales = _tenant_filter(db_session.query(Sale), Sale, organization_id, branch_id).filter(Sale.status == "active", Sale.deleted_at.is_(None)).all()
+    expenses = _tenant_filter(db_session.query(Expense), Expense, organization_id, branch_id).filter(Expense.status == "active", Expense.deleted_at.is_(None)).all()
     movements = []
     for sale in sales:
         movements.append({
@@ -191,16 +199,16 @@ def latest_movements(limit=10):
     return sorted(movements, key=lambda item: item["occurred_at"], reverse=True)[:limit]
 
 
-def calculate_return_estimate():
-    sales_total = db_session.query(func.coalesce(func.sum(Sale.amount), 0)).filter(
+def calculate_return_estimate(organization_id=None, branch_id=None):
+    sales_total = _tenant_filter(db_session.query(func.coalesce(func.sum(Sale.amount), 0)), Sale, organization_id, branch_id).filter(
         Sale.status == "active", Sale.deleted_at.is_(None)
     ).scalar()
-    operational_total = db_session.query(func.coalesce(func.sum(Expense.amount), 0)).filter(
+    operational_total = _tenant_filter(db_session.query(func.coalesce(func.sum(Expense.amount), 0)), Expense, organization_id, branch_id).filter(
         Expense.status == "active",
         Expense.deleted_at.is_(None),
         Expense.expense_type == "operational",
     ).scalar()
-    investment_total = db_session.query(func.coalesce(func.sum(Expense.amount), 0)).filter(
+    investment_total = _tenant_filter(db_session.query(func.coalesce(func.sum(Expense.amount), 0)), Expense, organization_id, branch_id).filter(
         Expense.status == "active",
         Expense.deleted_at.is_(None),
         Expense.expense_type == "investment",
@@ -218,7 +226,7 @@ def calculate_return_estimate():
 
     valid_sessions = [
         session
-        for session in db_session.query(WorkSession)
+        for session in _tenant_filter(db_session.query(WorkSession), WorkSession, organization_id, branch_id)
         .filter(WorkSession.status == "closed", WorkSession.deleted_at.is_(None))
         .all()
         if calculate_work_session_metrics(session).duration_seconds <= ANOMALOUS_DURATION_SECONDS
@@ -258,15 +266,15 @@ def calculate_return_estimate():
     }
 
 
-def monthly_summary(year=None):
+def monthly_summary(year=None, organization_id=None, branch_id=None):
     today = now_santiago().date()
     year = int(year or today.year)
     start_dt = datetime(year, 1, 1)
     end_dt = datetime(year, 12, 31, 23, 59, 59)
-    sales = _active_sales_between(start_dt, end_dt).all()
-    expenses = _active_expenses_between(start_dt, end_dt).all()
+    sales = _active_sales_between(start_dt, end_dt, organization_id, branch_id).all()
+    expenses = _active_expenses_between(start_dt, end_dt, organization_id, branch_id).all()
     sessions = (
-        db_session.query(WorkSession)
+        _tenant_filter(db_session.query(WorkSession), WorkSession, organization_id, branch_id)
         .filter(
             WorkSession.status.in_(["open", "closed"]),
             WorkSession.deleted_at.is_(None),

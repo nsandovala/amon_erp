@@ -20,6 +20,17 @@ def auth_app(app):
         CLERK_AUTHORIZED_PARTIES=['http://localhost'],
         AMON_ALLOWED_USER_IDS=['user_allowed'],
     )
+    from models import db_session
+    from models.membership import Membership
+    from services.organizations import bootstrap_the_best_burger
+    with app.app_context():
+        organization, _branch = bootstrap_the_best_burger()
+        db_session.add(Membership(
+            organization_id=organization.id,
+            clerk_user_id='user_allowed',
+            role='owner',
+        ))
+        db_session.commit()
     return app
 
 

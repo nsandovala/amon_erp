@@ -107,12 +107,14 @@ def _apply_common_filters(query, model, filters):
     return query
 
 
-def query_history_movements(filters):
+def query_history_movements(filters, organization_id=None, branch_id=None):
     movements = []
     search = filters.search.lower()
 
     if filters.movement_type in ("all", "sale"):
         query = _apply_common_filters(db_session.query(Sale), Sale, filters)
+        if organization_id is not None:
+            query = query.filter(Sale.organization_id == organization_id, Sale.branch_id == branch_id)
         for sale in query.all():
             searchable = f"{sale.description or ''} {sale.notes or ''} {sale.channel}".lower()
             if search and search not in searchable:
@@ -132,6 +134,8 @@ def query_history_movements(filters):
 
     if filters.movement_type in ("all", "expense", "investment"):
         query = _apply_common_filters(db_session.query(Expense), Expense, filters)
+        if organization_id is not None:
+            query = query.filter(Expense.organization_id == organization_id, Expense.branch_id == branch_id)
         if filters.category in KNOWN_EXPENSE_CATEGORIES:
             query = query.filter(Expense.category == filters.category)
         if filters.movement_type == "investment":
@@ -162,6 +166,6 @@ def query_history_movements(filters):
     return sorted(movements, key=lambda item: item["occurred_at"], reverse=True)
 
 
-def load_history(args, today=None):
+def load_history(args, today=None, organization_id=None, branch_id=None):
     filters = parse_history_filters(args, today=today)
-    return filters, query_history_movements(filters)
+    return filters, query_history_movements(filters, organization_id, branch_id)

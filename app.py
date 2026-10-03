@@ -22,6 +22,8 @@ from models import (
 from models.expense import EXPENSE_CATEGORIES, Expense
 from models.sale import Sale
 from models.work_session import WorkSession
+from models.membership import MEMBERSHIP_ROLES, Membership
+from models.organization import Organization
 from routes import PAYMENT_LABELS, active_work_session, commit_or_flash, parse_int
 from routes.dashboard import dashboard_bp
 from routes.expenses import expenses_bp
@@ -134,7 +136,7 @@ def create_app(test_config=None):
     @app.route("/monthly-summary.csv")
     def monthly_summary_csv():
         year = request.args.get("year", type=int) or now_santiago().year
-        rows = monthly_summary(year)
+        rows = monthly_summary(year, getattr(g, "organization_id", None), getattr(g, "branch_id", None))
         output = io.StringIO()
         output.write("\ufeff")
         writer = csv.writer(output, delimiter=";")
@@ -185,6 +187,42 @@ def create_app(test_config=None):
         if errors:
             raise click.ClickException("No se pueden contar registros: el schema no es válido.")
         click.echo(json.dumps(record_counts(database_engine), sort_keys=True))
+
+    @app.cli.command("tenant-grant")
+    @click.option("--user-id", required=True)
+    @click.option("--organization", "organization_slug", required=True)
+    @click.option("--role", type=click.Choice(MEMBERSHIP_ROLES), required=True)
+    def tenant_grant_command(user_id, organization_slug, role):
+        """Explicitly grant a Clerk identity local ERP membership."""
+        organization = db_session.query(Organization).filter(Organization.slug == organization_slug).one_or_none()
+        if organization is None:
+            raise click.ClickException("La organización no existe; ejecuta primero la migración o bootstrap explícito.")
+        membership = db_session.query(Membership).filter(
+            Membership.organization_id == organization.id,
+            Membership.clerk_user_id == user_id,
+        ).one_or_none()
+        if membership is None:
+            membership = Membership(
+                organization_id=organization.id,
+                clerk_user_id=user_id,
+                role=role,
+                status="active",
+            )
+            db_session.add(membership)
+            db_session.commit()
+            click.echo("Membresía creada.")
+        else:
+            click.echo("La membresía ya existe; no se modificó.")
+
+    @app.cli.command("tenant-memberships")
+    @click.option("--organization", "organization_slug", required=True)
+    def tenant_memberships_command(organization_slug):
+        """List local memberships without querying Clerk."""
+        organization = db_session.query(Organization).filter(Organization.slug == organization_slug).one_or_none()
+        if organization is None:
+            raise click.ClickException("La organización no existe.")
+        for membership in db_session.query(Membership).filter(Membership.organization_id == organization.id).order_by(Membership.id):
+            click.echo(f"{membership.clerk_user_id}\t{membership.role}\t{membership.status}")
 
     @app.cli.command("reset-db")
     def reset_db_command():

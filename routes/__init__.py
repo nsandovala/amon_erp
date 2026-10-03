@@ -5,6 +5,7 @@ from flask import flash
 
 from models import db_session, now_santiago
 from models.work_session import WorkSession
+from services.tenancy import scope_query
 
 
 PAYMENT_LABELS = {
@@ -160,7 +161,9 @@ def apply_datetime_range(query, column, start_value, end_value):
 
 
 def active_work_session():
-    return db_session.query(WorkSession).filter(WorkSession.status == "open", WorkSession.deleted_at.is_(None)).first()
+    return scope_query(db_session.query(WorkSession), WorkSession, required=True).filter(
+        WorkSession.status == "open", WorkSession.deleted_at.is_(None)
+    ).first()
 
 
 def commit_or_flash(success_message):

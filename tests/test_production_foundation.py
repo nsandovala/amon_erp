@@ -2,7 +2,9 @@ import json
 from unittest.mock import patch
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.schema import CreateIndex
 
 import models
 from app import create_app
@@ -51,12 +53,26 @@ def test_postgresql_engine_uses_pre_ping_without_sqlite_options():
 def test_work_session_index_protects_sqlite_and_postgresql():
     index = next(
         item for item in WorkSession.__table__.indexes
-        if item.name == "uq_work_sessions_single_open"
+        if item.name == "uq_work_sessions_open_per_branch"
     )
 
     assert index.unique is True
-    assert str(index.dialect_options["sqlite"]["where"]) == "status = 'open'"
-    assert str(index.dialect_options["postgresql"]["where"]) == "status = 'open'"
+    assert list(index.columns.keys()) == ["organization_id", "branch_id"]
+    assert str(index.dialect_options["sqlite"]["where"]) == "status = 'open' AND deleted_at IS NULL"
+    assert str(index.dialect_options["postgresql"]["where"]) == "status = 'open' AND deleted_at IS NULL"
+
+
+def test_work_session_open_index_compiles_for_postgresql():
+    index = next(
+        item for item in WorkSession.__table__.indexes
+        if item.name == "uq_work_sessions_open_per_branch"
+    )
+
+    statement = str(CreateIndex(index).compile(dialect=postgresql.dialect()))
+
+    assert "CREATE UNIQUE INDEX uq_work_sessions_open_per_branch" in statement
+    assert "(organization_id, branch_id)" in statement
+    assert "WHERE status = 'open' AND deleted_at IS NULL" in statement
 
 
 def test_health_is_public_and_reports_database(client, app):
@@ -143,7 +159,7 @@ def test_db_check_succeeds_with_current_schema(app):
 
 def test_db_check_fails_when_open_session_index_is_missing(app):
     with models.get_engine().begin() as connection:
-        connection.execute(text("DROP INDEX uq_work_sessions_single_open"))
+        connection.execute(text("DROP INDEX uq_work_sessions_open_per_branch"))
 
     result = app.test_cli_runner().invoke(args=["db-check"])
 
@@ -153,9 +169,9 @@ def test_db_check_fails_when_open_session_index_is_missing(app):
 
 def test_db_check_rejects_non_partial_open_session_index(app):
     with models.get_engine().begin() as connection:
-        connection.execute(text("DROP INDEX uq_work_sessions_single_open"))
+        connection.execute(text("DROP INDEX uq_work_sessions_open_per_branch"))
         connection.execute(text(
-            "CREATE UNIQUE INDEX uq_work_sessions_single_open ON work_sessions (status)"
+            "CREATE UNIQUE INDEX uq_work_sessions_open_per_branch ON work_sessions (organization_id, branch_id)"
         ))
 
     result = app.test_cli_runner().invoke(args=["db-check"])

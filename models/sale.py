@@ -13,6 +13,10 @@ class Sale(Base):
     __tablename__ = "sales"
 
     id = Column(Integer, primary_key=True)
+    # Nullable only for pre-migration/bootstrap compatibility. Revision F2.1
+    # backfills and enforces these columns in deployed financial tables.
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True, index=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     work_session_id = Column(Integer, ForeignKey("work_sessions.id"), nullable=True, index=True)
     occurred_at = Column(DateTime, nullable=False, default=now_santiago, index=True)
     amount = Column(Integer, nullable=False)
@@ -26,6 +30,8 @@ class Sale(Base):
     deleted_at = Column(DateTime, nullable=True, index=True)
 
     work_session = relationship("WorkSession", back_populates="sales")
+    organization = relationship("Organization")
+    branch = relationship("Branch")
 
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_sale_amount_positive"),
