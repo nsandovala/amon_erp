@@ -13,7 +13,7 @@
 
 ## Tests
 
-- **167 pruebas verdes**.
+- F2.0, F2.1 y F2.2 están integrados en el baseline `4bff8e7`; F2.3 añade administración local y selector de contexto.
 - Suite: pytest.
 
 ## Funcionalidades entregadas en F0
@@ -99,8 +99,8 @@
 
 ## Estado del repositorio
 
-- Rama activa: `feature/f2-organizations-foundation`.
-- Baseline: `310f22d merge: integrate Clerk auth foundation` con 111 tests.
+- Rama activa: `feature/f2.3-tenant-admin`.
+- Baseline: `4bff8e7 merge: integrate F2 organization and tenant foundation`.
 - F2 incluye migración aislada y cobertura A/B de aislamiento de tenant.
 
 ## Próxima fase planificada

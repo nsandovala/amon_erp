@@ -10,7 +10,7 @@ from clerk_backend_api.security import authenticate_request
 from clerk_backend_api.security.types import AuthenticateRequestOptions
 from flask import abort, g, redirect, render_template, request, url_for
 
-from services.tenancy import TenantResolutionError, resolve_request_tenant
+from services.tenancy import TenantResolutionError, TenantSelectionRequired, resolve_request_tenant
 
 
 def frontend_domain(key):
@@ -44,6 +44,7 @@ def init_auth(app):
         g.branch = None
         g.branch_id = None
         g.tenant_enforced = True
+        g.tenant_selection_required = False
         if request.endpoint == 'health':
             return None
         if app.testing and app.config['AUTH_TEST_BYPASS']:
@@ -76,13 +77,16 @@ def init_auth(app):
             if g.erp_access:
                 try:
                     resolve_request_tenant(g.user_id)
+                except TenantSelectionRequired:
+                    g.tenant_selection_required = True
                 except TenantResolutionError:
                     # The legacy allowlist authenticates an identity but never
                     # grants tenant access without an active local membership.
                     g.erp_access = False
+        selector_endpoint = 'tenant_context.selector'
         if request.endpoint == 'auth_access':
             if g.user_id and g.erp_access:
-                return redirect(url_for('dashboard.index'))
+                return redirect(url_for(selector_endpoint if g.tenant_selection_required else 'dashboard.index'))
             return None
         if not g.user_id:
             if request.method in ('GET', 'HEAD'):
@@ -90,6 +94,10 @@ def init_auth(app):
             abort(401)
         if not g.erp_access:
             return render_template('auth/access.html'), 403
+        if g.tenant_selection_required and request.endpoint != selector_endpoint:
+            if request.method in ('GET', 'HEAD'):
+                return redirect(url_for(selector_endpoint))
+            abort(403)
         return None
 
     @app.route('/auth')

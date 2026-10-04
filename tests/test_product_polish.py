@@ -5,15 +5,37 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 
 
-def test_shell_separates_product_and_active_organization(client):
-    html = client.get("/").get_data(as_text=True)
+def test_shell_separates_product_and_active_organization(app):
+    from flask import g
+    from models import db_session
+    from models.branch import Branch
+    from models.membership import Membership
+    from models.organization import Organization
+    from services.tenancy import resolve_request_tenant
+
+    with app.app_context():
+        organization = Organization(name="Organización de prueba", slug="org-prueba", entity_type="company")
+        db_session.add(organization); db_session.flush()
+        branch = Branch(organization_id=organization.id, name="Sucursal real", slug="real")
+        db_session.add_all([branch, Membership(organization_id=organization.id, clerk_user_id="user_shell", role="owner")])
+        db_session.commit()
+
+    @app.before_request
+    def install_shell_context():
+        g.user_id = "user_shell"
+        resolve_request_tenant(g.user_id)
+        g.tenant_enforced = True
+
+    html = app.test_client().get("/").get_data(as_text=True)
 
     assert "AMON ERP" in html
     assert 'class="organization-card"' in html
     assert 'aria-label="Organización activa"' in html
-    assert "The Best Burger" in html
-    assert "Operativa" in html
+    assert "Organización de prueba" in html
+    assert "Sucursal real" in html
+    assert "The Best Burger" not in html
     assert "Organización activa" in html
+    assert "The Best Burger" not in (ROOT / "templates" / "base.html").read_text(encoding="utf-8")
 
 
 def test_shell_groups_current_navigation_without_future_modules(client):
