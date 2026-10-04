@@ -16,7 +16,7 @@ def test_dashboard_uses_amon_erp_metadata_and_requested_heading(client):
     assert "<h1>Resumen financiero</h1>" in html
     assert "Vista consolidada de ventas, gastos, caja y resultado del período seleccionado." in html
     assert "AMON ERP" in html
-    assert "The Best Burger" in html
+    assert "The Best Burger" not in html
 
 
 @pytest.mark.parametrize("path,title", [

@@ -68,6 +68,7 @@
 - La unicidad de jornada `open` se protege con un índice parcial por `organization_id` + `branch_id` en SQLite y PostgreSQL; dos tenants pueden tener jornadas abiertas simultáneamente.
 - `Base.metadata.create_all()` se acepta únicamente para bootstrap inicial de una base vacía. La evolución de esquema usa Alembic versionado y no se ejecuta automáticamente en producción.
 - F2 define `Organization`, `Branch` y `Membership` como tenancy local. Clerk continúa validando únicamente identidad; sus claims de organización o rol no autorizan acciones del ERP.
+- F2.3 permite recordar en sesión una organización y sucursal, pero cada request las vuelve a validar contra Membership, Organization y Branch activas. RBAC se resuelve server-side desde Membership.
 - Los registros financieros y de auditoría llevan `organization_id` y `branch_id`; F2.1 los migra con backfill validado antes de marcarlos requeridos en bases desplegadas.
 - AMON Shop y AMON ERP mantienen bases de datos e IDs independientes. Shop nunca envía ni depende de los `organization_id` o `branch_id` internos del ERP; futuros eventos usarán identificadores externos estables con un mapeo del lado ERP. No hay escrituras directas Firestore -> Neon.
 - Los ajustes legacy `ensure_soft_delete_columns` y `ensure_work_session_cash_columns` se ejecutan solo para SQLite.

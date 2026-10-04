@@ -13,18 +13,18 @@
 <body class="auth-page">
   <main class="auth-shell">
     <div class="auth-toolbar">{% include 'partials/theme_control.html' %}</div>
-    <header class="auth-brand"><span class="brand-mark" aria-hidden="true">A</span><div><p class="eyebrow">Producto AMON</p><h1>AMON ERP</h1><p>The Best Burger · Organización activa</p></div></header>
+    <header class="auth-brand"><span class="brand-mark" aria-hidden="true">A</span><div><p class="eyebrow">Producto AMON</p><h1>AMON ERP</h1><p>Accede con una cuenta autorizada.</p></div></header>
     <section class="panel auth-panel" aria-label="Acceso seguro">
       {% if auth_unavailable %}
         <h2>Acceso temporalmente no disponible</h2>
         <p>Revisa la configuración de autenticación o vuelve a intentar más tarde.</p>
       {% elif g.user_id and not g.erp_access %}
-        <h2>Esta cuenta no tiene acceso a esta organización.</h2>
-        <p>Usa otra cuenta autorizada para The Best Burger.</p>
+        <h2>Tu cuenta no tiene acceso a AMON ERP.</h2>
+        <p>Usa otra cuenta autorizada.</p>
         {% include 'auth/controls.html' %}
       {% else %}
         <h2>Acceso a AMON ERP</h2>
-        <p>Ingresa con tu cuenta autorizada para The Best Burger.</p>
+        <p>Accede con una cuenta autorizada.</p>
         {% include 'auth/controls.html' %}
       {% endif %}
     </section>

@@ -24,7 +24,7 @@ Control financiero operativo del food truck y The Best Burger SpA.
 ## Contexto de producto
 
 - **Producto**: AMON ERP.
-- **Organización activa**: The Best Burger.
+- **Organización activa**: contexto local resuelto para el usuario (The Best Burger es el tenant inicial).
 - F2 crea la base local de Organization, Branch y Membership, más límites de tenant en los movimientos financieros. Clerk permanece solo como proveedor de identidad.
 - AMON Shop y AMON ERP usarán bases de datos e IDs independientes; cualquier evento futuro empleará identificadores externos estables y un mapeo ERP, nunca IDs internos ni escrituras directas Firestore -> Neon.
 

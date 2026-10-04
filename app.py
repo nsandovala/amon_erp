@@ -31,6 +31,8 @@ from routes.history import history_bp
 from routes.sales import sales_bp
 from routes.sessions import sessions_bp
 from routes.trash import trash_bp
+from routes.admin import admin_bp
+from routes.tenant_context import tenant_context_bp
 from services.backup import create_backup, local_database_path, supports_local_backup
 from services.auth import init_auth
 from services.database import database_is_available, record_counts, schema_errors
@@ -68,6 +70,8 @@ def create_app(test_config=None):
     app.register_blueprint(sessions_bp)
     app.register_blueprint(history_bp)
     app.register_blueprint(trash_bp)
+    app.register_blueprint(tenant_context_bp)
+    app.register_blueprint(admin_bp)
 
     @app.before_request
     def protect_post():
@@ -99,6 +103,8 @@ def create_app(test_config=None):
             "format_duration": format_duration,
             "now_santiago": now_santiago,
             "supports_local_backup": supports_local_backup(app.config["SQLALCHEMY_DATABASE_URI"]),
+            "active_organization": getattr(g, "organization", None),
+            "active_branch": getattr(g, "branch", None),
         }
 
     @app.template_filter("clp")

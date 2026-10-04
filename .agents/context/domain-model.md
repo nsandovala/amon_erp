@@ -17,6 +17,7 @@
 - Pertenece a una Organization y referencia al usuario externo mediante `clerk_user_id`.
 - Roles locales permitidos: `owner`, `manager`, `operator`, `accountant_readonly`.
 - La unicidad es por par organización/usuario Clerk.
+- La organización siempre conserva al menos un Membership `owner` activo.
 
 ## Entidades financieras actuales
 

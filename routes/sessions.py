@@ -12,6 +12,7 @@ from services.work_sessions import (
     session_balance_status,
 )
 from services.tenancy import apply_tenant_fields, scope_query, scoped_resource_or_404
+from services.authorization import require_operational_write
 
 
 sessions_bp = Blueprint("sessions", __name__, url_prefix="/jornadas")
@@ -23,6 +24,7 @@ def index():
     field_errors = {}
     form = request.form if request.method == "POST" else {}
     if request.method == "POST":
+        require_operational_write(lambda: None)()
         try:
             if active_work_session():
                 raise ValueError("Ya existe una jornada abierta. Ciérrala antes de abrir otra.")
@@ -46,6 +48,7 @@ def index():
 
 
 @sessions_bp.route("/<int:session_id>/cerrar", methods=["POST"])
+@require_operational_write
 def close(session_id):
     work_session = scoped_resource_or_404(WorkSession, session_id)
     if not work_session or work_session.deleted_at is not None or work_session.status != "open":
@@ -77,6 +80,7 @@ def close(session_id):
 
 
 @sessions_bp.route("/<int:session_id>/editar", methods=["GET", "POST"])
+@require_operational_write
 def edit(session_id):
     work_session = scoped_resource_or_404(WorkSession, session_id)
     if work_session.deleted_at is not None:
@@ -138,6 +142,7 @@ def associate_movements(session_id):
         return redirect(url_for("sessions.index"))
 
     if request.method == "POST":
+        require_operational_write(lambda: None)()
         associated = associate_historical_movements(work_session)
         if commit_or_flash(f"Se asociaron {associated} movimientos a la jornada."):
             return redirect(url_for("sessions.index"))
@@ -150,6 +155,7 @@ def associate_movements(session_id):
 
 
 @sessions_bp.route("/<int:session_id>/archivar", methods=["POST"])
+@require_operational_write
 def archive(session_id):
     work_session = scoped_resource_or_404(WorkSession, session_id)
     if work_session.deleted_at is not None:
@@ -164,6 +170,7 @@ def archive(session_id):
 
 
 @sessions_bp.route("/<int:session_id>/eliminar", methods=["POST"])
+@require_operational_write
 def delete(session_id):
     work_session = scoped_resource_or_404(WorkSession, session_id)
     if work_session.status == "open":
@@ -176,6 +183,7 @@ def delete(session_id):
 
 
 @sessions_bp.route("/<int:session_id>/restaurar", methods=["POST"])
+@require_operational_write
 def restore(session_id):
     work_session = scoped_resource_or_404(WorkSession, session_id)
     work_session.deleted_at = None

@@ -22,6 +22,7 @@ from routes import (
     parse_split_datetime,
 )
 from services.tenancy import apply_tenant_fields, scope_query, scoped_resource_or_404
+from services.authorization import require_operational_write
 
 
 expenses_bp = Blueprint("expenses", __name__, url_prefix="/gastos")
@@ -33,6 +34,7 @@ def index():
     field_errors = {}
     form = request.form if request.method == "POST" else {}
     if request.method == "POST":
+        require_operational_write(lambda: None)()
         try:
             expense = _expense_from_form(form)
             apply_tenant_fields(expense)
@@ -90,6 +92,7 @@ def detail(expense_id):
 
 
 @expenses_bp.route("/<int:expense_id>/editar", methods=["GET", "POST"])
+@require_operational_write
 def edit(expense_id):
     expense = scoped_resource_or_404(Expense, expense_id)
     if expense.deleted_at is not None:
@@ -132,6 +135,7 @@ def edit(expense_id):
 
 
 @expenses_bp.route("/<int:expense_id>/archivar", methods=["POST"])
+@require_operational_write
 def archive(expense_id):
     expense = scoped_resource_or_404(Expense, expense_id)
     if expense.deleted_at is not None:
@@ -142,6 +146,7 @@ def archive(expense_id):
 
 
 @expenses_bp.route("/<int:expense_id>/eliminar", methods=["POST"])
+@require_operational_write
 def delete(expense_id):
     expense = scoped_resource_or_404(Expense, expense_id)
     if expense.deleted_at is None:
@@ -151,6 +156,7 @@ def delete(expense_id):
 
 
 @expenses_bp.route("/<int:expense_id>/restaurar", methods=["POST"])
+@require_operational_write
 def restore(expense_id):
     expense = scoped_resource_or_404(Expense, expense_id)
     expense.deleted_at = None

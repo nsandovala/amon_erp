@@ -39,3 +39,17 @@ Si un agente detecta que necesita cambiar una regla contable, migrar base de dat
 ## Índice completo
 
 Ver `.agents/README.md` para el orden recomendado de lectura y la lista completa de roles, checklists y prompts.
+
+DATA SAFETY — HARD RULE: ningún agente puede ejecutar DELETE, TRUNCATE, DROP, migraciones destructivas, restores, data backfills mutantes, limpieza de tablas, ni comandos equivalentes contra una base persistente sin autorización humana explícita en el turno actual. Migraciones deben probarse primero sobre copia aislada. Toda transformación de datos debe informar conteos before/after y preservar backup verificable.
+PROHIBIDO SIN APROBACIÓN
+DELETE
+TRUNCATE
+DROP
+UPDATE masivo
+backfill sobre BD persistente
+alembic downgrade
+restore
+reset / recreate database
+firebase delete
+prisma db push --force-reset
+migrate reset

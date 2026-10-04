@@ -14,6 +14,7 @@ from routes import (
     parse_split_datetime,
 )
 from services.tenancy import apply_tenant_fields, scope_query, scoped_resource_or_404
+from services.authorization import require_operational_write
 
 
 sales_bp = Blueprint("sales", __name__, url_prefix="/ventas")
@@ -25,6 +26,7 @@ def index():
     field_errors = {}
     form = request.form if request.method == "POST" else {}
     if request.method == "POST":
+        require_operational_write(lambda: None)()
         try:
             sale = _sale_from_form(form)
             apply_tenant_fields(sale)
@@ -72,6 +74,7 @@ def detail(sale_id):
 
 
 @sales_bp.route("/<int:sale_id>/editar", methods=["GET", "POST"])
+@require_operational_write
 def edit(sale_id):
     sale = scoped_resource_or_404(Sale, sale_id)
     if sale.deleted_at is not None:
@@ -100,6 +103,7 @@ def edit(sale_id):
 
 
 @sales_bp.route("/<int:sale_id>/archivar", methods=["POST"])
+@require_operational_write
 def archive(sale_id):
     sale = scoped_resource_or_404(Sale, sale_id)
     if sale.deleted_at is not None:
@@ -110,6 +114,7 @@ def archive(sale_id):
 
 
 @sales_bp.route("/<int:sale_id>/eliminar", methods=["POST"])
+@require_operational_write
 def delete(sale_id):
     sale = scoped_resource_or_404(Sale, sale_id)
     if sale.deleted_at is None:
@@ -119,6 +124,7 @@ def delete(sale_id):
 
 
 @sales_bp.route("/<int:sale_id>/restaurar", methods=["POST"])
+@require_operational_write
 def restore(sale_id):
     sale = scoped_resource_or_404(Sale, sale_id)
     sale.deleted_at = None
