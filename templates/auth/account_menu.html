@@ -1,0 +1,24 @@
+<div class="account-menu-wrap" data-account-menu>
+  <details class="account-menu">
+    <summary class="account-trigger" aria-label="Cuenta y sesión">
+      <span class="account-avatar" data-account-avatar aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>
+      <span class="account-trigger-label" data-account-name>Mi cuenta</span>
+      <svg class="account-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </summary>
+    <div class="account-panel">
+      <div class="account-identity"><strong data-account-name-full>Mi cuenta</strong><small data-account-email></small></div>
+      <div class="account-access" aria-label="Mi acceso AMON ERP">
+        <p class="account-section-title">Mi acceso AMON ERP</p>
+        <dl>
+          <dt>Organización</dt><dd>{{ active_organization.name if active_organization else '—' }}</dd>
+          <dt>Sucursal</dt><dd>{{ active_branch.name if active_branch else '—' }}</dd>
+          <dt>Rol</dt><dd>{{ role_labels.get(g.erp_role, 'Sin rol') }}</dd>
+        </dl>
+        {% if can_switch_context %}<a class="account-item" href="{{ url_for('tenant_context.selector', force=1) }}">Cambiar organización o sucursal</a>{% endif %}
+      </div>
+      <button class="account-item" type="button" data-auth-account>Mi cuenta</button>
+      <button class="account-item account-item-danger" type="button" data-auth-sign-out>Cerrar sesión</button>
+      <p class="account-status" data-auth-status role="status"></p>
+    </div>
+  </details>
+</div>

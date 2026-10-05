@@ -1,10 +1,133 @@
 {% extends 'base.html' %}
 {% block title %}Administración · AMON ERP{% endblock %}
-{% block eyebrow %}Sistema{% endblock %}{% block heading %}Administración{% endblock %}
+{% block eyebrow %}Gestión{% endblock %}{% block heading %}Administración{% endblock %}
 {% block content %}
-<div class="admin-grid">
-<section class="card admin-card"><h2>Organización</h2><dl class="admin-details"><dt>Estado</dt><dd>{{ organization.status }}</dd><dt>Slug</dt><dd>{{ organization.slug }}</dd></dl>
-{% if g.erp_role == 'owner' %}<form method="post" action="{{ url_for('admin.update_organization') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Nombre<input name="name" value="{{ organization.name }}" required></label><label>Razón social<input name="legal_name" value="{{ organization.legal_name or '' }}"></label><label>RUT<input name="tax_id" value="{{ organization.tax_id or '' }}"></label><label>Tipo<select name="entity_type">{% for item in entity_types %}<option value="{{ item }}" {% if item == organization.entity_type %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label><button class="button button-primary">Guardar organización</button></form>{% endif %}</section>
-<section class="card admin-card"><h2>Sucursales</h2><div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Slug</th><th>Estado</th>{% if g.erp_role == 'owner' %}<th></th>{% endif %}</tr></thead><tbody>{% for branch in branches %}<tr><td>{{ branch.name }}</td><td>{{ branch.slug }}</td><td>{{ branch.status }}</td>{% if g.erp_role == 'owner' %}<td><form method="post" action="{{ url_for('admin.update_branch', branch_id=branch.id) }}" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input name="name" value="{{ branch.name }}" required><input name="slug" value="{{ branch.slug }}" required><button class="button button-secondary">Editar</button></form><form method="post" action="{{ url_for('admin.archive_branch', branch_id=branch.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button button-secondary">Archivar</button></form></td>{% endif %}</tr>{% endfor %}</tbody></table></div>{% if g.erp_role == 'owner' %}<form method="post" action="{{ url_for('admin.add_branch') }}" class="compact-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input name="name" placeholder="Nueva sucursal" required><input name="slug" placeholder="slug" required><button class="button button-secondary">Agregar</button></form>{% endif %}</section>
-<section class="card admin-card admin-card-wide"><h2>Usuarios y accesos</h2><div class="table-wrap"><table><thead><tr><th>Clerk user ID</th><th>Rol</th><th>Estado</th>{% if g.erp_role == 'owner' %}<th></th>{% endif %}</tr></thead><tbody>{% for membership in memberships %}<tr><td>{{ membership.clerk_user_id }}</td><td>{{ membership.role }}</td><td>{{ membership.status }}</td>{% if g.erp_role == 'owner' %}<td><form method="post" action="{{ url_for('admin.update_membership_role', membership_id=membership.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><select name="role">{% for role in roles %}<option value="{{ role }}" {% if role == membership.role %}selected{% endif %}>{{ role }}</option>{% endfor %}</select><button class="button button-secondary">Cambiar</button></form><form method="post" action="{{ url_for('admin.update_membership_status', membership_id=membership.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="status" value="{{ 'inactive' if membership.status == 'active' else 'active' }}"><button class="button button-secondary">{{ 'Desactivar' if membership.status == 'active' else 'Reactivar' }}</button></form></td>{% endif %}</tr>{% endfor %}</tbody></table></div>{% if g.erp_role == 'owner' %}<form method="post" action="{{ url_for('admin.add_membership') }}" class="compact-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input name="clerk_user_id" placeholder="user_…" required><select name="role">{% for role in roles %}<option value="{{ role }}">{{ role }}</option>{% endfor %}</select><button class="button button-primary">Agregar acceso</button></form>{% endif %}</section></div>
+{% set is_owner = g.erp_role == 'owner' %}
+{% set org_status = {'active': 'Activa', 'inactive': 'Inactiva', 'archived': 'Archivada'} %}
+{% set person_status = {'active': 'Activo', 'inactive': 'Inactivo'} %}
+{% set active_members = memberships|selectattr('status', 'equalto', 'active')|list|length %}
+{% set editing_branch_id = request.args.get('editar', '')|int(0) %}
+
+<p class="admin-meta" aria-label="Resumen administrativo">
+  <span><b>{{ organization.name }}</b></span>
+  <span class="status {{ organization.status }}">{{ org_status.get(organization.status, organization.status) }}</span>
+  <span>Tu rol: {{ role_labels.get(g.erp_role, g.erp_role) }}</span>
+  <span>{{ active_members }} {{ 'miembro activo' if active_members == 1 else 'miembros activos' }}</span>
+  <span>{{ branches|length }} {{ 'sucursal activa' if branches|length == 1 else 'sucursales activas' }}</span>
+</p>
+
+<nav class="admin-tabs" aria-label="Secciones de administración">
+  <a href="#empresa">Empresa</a><a href="#sucursales">Sucursales</a><a href="#equipo">Equipo y permisos</a>
+</nav>
+
+<div class="admin-stack">
+  <section class="panel admin-section" id="empresa" aria-labelledby="empresa-title">
+    <div class="panel-head"><h2 id="empresa-title">Empresa</h2></div>
+    {% if is_owner %}
+    <form method="post" action="{{ url_for('admin.update_organization') }}" class="form-grid">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Nombre<input name="name" value="{{ organization.name }}" required></label>
+      <label>Razón social<input name="legal_name" value="{{ organization.legal_name or '' }}"></label>
+      <label>RUT<input name="tax_id" value="{{ organization.tax_id or '' }}"></label>
+      <label>Tipo<select name="entity_type">{% for item in entity_types %}<option value="{{ item }}" {% if item == organization.entity_type %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+      <div class="form-actions form-grid-full"><button class="button button-primary">Guardar empresa</button></div>
+    </form>
+    {% else %}
+    <dl class="admin-details"><dt>Estado</dt><dd>{{ org_status.get(organization.status, organization.status) }}</dd><dt>Identificador</dt><dd>{{ organization.slug }}</dd></dl>
+    {% endif %}
+  </section>
+
+  <section class="panel admin-section" id="sucursales" aria-labelledby="sucursales-title">
+    <div class="panel-head"><h2 id="sucursales-title">Sucursales</h2></div>
+    <ul class="branch-list">
+      {% for branch in branches %}
+      <li class="branch-row">
+        {% if is_owner and editing_branch_id == branch.id %}
+        <form method="post" action="{{ url_for('admin.update_branch', branch_id=branch.id) }}" class="branch-edit">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <label>Nombre<input name="name" value="{{ branch.name }}" required></label>
+          <label>Identificador<input name="slug" value="{{ branch.slug }}" required></label>
+          <div class="form-actions"><button class="button button-primary button-compact">Guardar</button><a class="button button-secondary button-compact" href="{{ url_for('admin.index') }}#sucursales">Cancelar</a></div>
+        </form>
+        {% else %}
+        <div class="branch-main"><strong>{{ branch.name }}</strong><small>{{ branch.slug }}</small></div>
+        <span class="status {{ branch.status }}">{{ org_status.get(branch.status, branch.status) }}</span>
+        {% if is_owner %}
+        <div class="branch-actions">
+          <a class="button button-secondary button-compact" href="{{ url_for('admin.index', editar=branch.id) }}#sucursales">Editar</a>
+          <form method="post" action="{{ url_for('admin.archive_branch', branch_id=branch.id) }}" data-confirm="¿Archivar la sucursal {{ branch.name }}? Dejará de estar disponible para operar.">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="button button-secondary button-compact" {% if branches|length < 2 %}disabled title="Debe existir al menos una sucursal activa."{% endif %}>Archivar</button>
+          </form>
+        </div>
+        {% endif %}
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  {% if is_owner %}
+  <section class="panel admin-section" id="nueva-sucursal" aria-labelledby="nueva-sucursal-title">
+    <div class="panel-head"><h2 id="nueva-sucursal-title">Agregar sucursal</h2></div>
+    <form method="post" action="{{ url_for('admin.add_branch') }}" class="form-grid">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Nombre<input name="name" placeholder="Ej. Sucursal Centro" required></label>
+      <label>Identificador<input name="slug" placeholder="ej. centro" required></label>
+      <div class="form-actions form-grid-full"><button class="button button-primary">Agregar sucursal</button></div>
+    </form>
+  </section>
+  {% endif %}
+
+  <section class="panel admin-section" id="equipo" aria-labelledby="equipo-title">
+    <div class="panel-head"><h2 id="equipo-title">Equipo y permisos</h2></div>
+    <ul class="member-list">
+      {% for membership in memberships %}
+      {% set identity = identities.get(membership.clerk_user_id) %}
+      {% set primary = (identity.name or identity.email) if identity and (identity.name or identity.email) else 'Usuario' %}
+      {% set secondary = identity.email if identity and identity.name and identity.email else None %}
+      {% set short_id = membership.clerk_user_id[:9] ~ '…' ~ membership.clerk_user_id[-4:] if membership.clerk_user_id|length > 16 else membership.clerk_user_id %}
+      <li class="member-row">
+        <span class="member-avatar" aria-hidden="true">{% if identity and identity.image_url %}<img src="{{ identity.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% else %}{{ primary[0]|upper }}{% endif %}</span>
+        <div class="member-identity">
+          <strong class="member-name">{{ primary }}</strong>
+          <small class="member-email">{% if secondary %}{{ secondary }}{% elif not (identity and (identity.name or identity.email)) %}ID {{ short_id }}{% endif %}</small>
+          <details class="member-tech"><summary>Detalle técnico</summary><code>{{ membership.clerk_user_id }}</code></details>
+        </div>
+        <div class="member-meta">
+          <span class="member-role">{{ role_labels.get(membership.role, membership.role) }}</span>
+          <span class="status {{ membership.status }}">{{ person_status.get(membership.status, membership.status) }}</span>
+        </div>
+        {% if is_owner %}
+        <div class="member-actions">
+          <form method="post" action="{{ url_for('admin.update_membership_role', membership_id=membership.id) }}" class="member-role-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <select name="role" aria-label="Rol de {{ primary }}">{% for role in roles %}<option value="{{ role }}" {% if role == membership.role %}selected{% endif %}>{{ role_labels.get(role, role) }}</option>{% endfor %}</select>
+            <button class="button button-secondary button-compact">Cambiar rol</button>
+          </form>
+          <form method="post" action="{{ url_for('admin.update_membership_status', membership_id=membership.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="status" value="{{ 'inactive' if membership.status == 'active' else 'active' }}">
+            <button class="button button-secondary button-compact">{{ 'Desactivar' if membership.status == 'active' else 'Reactivar' }}</button>
+          </form>
+        </div>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  {% if is_owner %}
+  <section class="panel admin-section" id="nuevo-acceso" aria-labelledby="nuevo-acceso-title">
+    <div class="panel-head"><h2 id="nuevo-acceso-title">Agregar acceso</h2></div>
+    <form method="post" action="{{ url_for('admin.add_membership') }}" class="form-grid">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Email de la cuenta<input type="email" name="email" placeholder="persona@empresa.com" autocomplete="off" required></label>
+      <label>Rol<select name="role">{% for role in roles %}<option value="{{ role }}">{{ role_labels.get(role, role) }}</option>{% endfor %}</select></label>
+      <p class="form-hint form-grid-full">La persona debe tener una cuenta AMON creada. Si el email no existe, no se crea automáticamente.</p>
+      <div class="form-actions form-grid-full"><button class="button button-primary">Agregar acceso</button></div>
+    </form>
+  </section>
+  {% endif %}
+</div>
 {% endblock %}

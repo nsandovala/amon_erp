@@ -2,6 +2,7 @@
 from models import db_session
 from models.branch import Branch
 from models.membership import MEMBERSHIP_ROLES, Membership
+from models.organization import Organization
 
 
 def active_owner_count(organization_id):
@@ -57,4 +58,27 @@ def create_branch(organization_id, name, slug):
     if not branch.name or not branch.slug:
         raise ValueError("Nombre y slug son obligatorios.")
     db_session.add(branch)
+    return branch
+
+
+def active_branch_count(organization_id):
+    db_session.flush()  # the session doesn't autoflush: count pending status changes too
+    return db_session.query(Branch).filter(
+        Branch.organization_id == organization_id, Branch.status == "active",
+    ).count()
+
+
+def archive_branch(branch):
+    """Archive a branch, keeping at least one active branch per Organization.
+
+    Only branches of the same Organization are counted, so other tenants can
+    never satisfy this invariant.
+    """
+    if branch.status != "active":
+        raise ValueError("La sucursal ya no está activa.")
+    # Serialize concurrent archives of the same Organization (row lock on PostgreSQL; no-op on SQLite).
+    db_session.query(Organization).filter(Organization.id == branch.organization_id).with_for_update().one()
+    if active_branch_count(branch.organization_id) <= 1:
+        raise ValueError("La organización debe conservar al menos una sucursal activa.")
+    branch.status = "archived"
     return branch

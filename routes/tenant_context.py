@@ -24,7 +24,10 @@ def selector():
         return redirect(url_for("dashboard.index"))
     try:
         resolve_request_tenant(user_id)
-        return redirect(url_for("dashboard.index"))
+        # An explicit request (?force=1) opens the selector instead of auto-resolving.
+        # It only changes what is shown: every POST is still validated server-side.
+        if request.args.get("force") != "1":
+            return redirect(url_for("dashboard.index"))
     except TenantSelectionRequired:
         pass
     except TenantResolutionError:
@@ -32,6 +35,7 @@ def selector():
     return render_template(
         "tenant_context/select.html",
         memberships=memberships,
-        branches_by_organization={item.organization_id: branches_for(item.organization_id) for item in memberships},
-        selected_organization_id=session.get("active_organization_id"),
+        branches_by_organization={item.organization_id: [{"id": branch.id, "name": branch.name} for branch in branches_for(item.organization_id)] for item in memberships},
+        selected_organization_id=session.get("active_organization_id") or getattr(g, "organization_id", None),
+        selected_branch_id=session.get("active_branch_id") or getattr(g, "branch_id", None),
     )
