@@ -40,16 +40,15 @@
 
 ### F1.4 — Usuarios y roles
 
-- Owner.
-- Manager.
-- Operator.
-- Accountant (solo lectura).
+- **Estado**: completado dentro de F2.3 (RBAC local por Membership).
+- Owner, Manager, Operator y Accountant (solo lectura).
 
 ## F2 — Organizations Foundation
 
-- **Estado**: F2.0 foundation, F2.1 migración versionada y F2.2 aislamiento server-side implementados; F2.3 administración y UX de contexto en implementación.
+- **Estado**: F2.0 foundation, F2.1 migración versionada, F2.2 aislamiento server-side, F2.3 administración/RBAC y F2.4 UX de cuenta y tenant integrados; F2.5 admisión por Membership en implementación (rama `feature/f2.5-membership-admission`).
 - Organization, Branch y Membership son entidades propias del ERP.
 - Clerk valida identidad solamente; no entrega roles ni autorización de tenant.
+- F2.5: `AMON_ADMISSION_MODE` (`allowlist` default transitorio, `membership` objetivo) y alta de accesos por email verificado en Clerk.
 
 ## F3 — Smart Inbox + Documents
 

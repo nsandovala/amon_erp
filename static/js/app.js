@@ -432,6 +432,52 @@ function bindHistoryPeriod() {
   updateVisibility();
 }
 
+function bindAdminTabs() {
+  const tablist = document.querySelector("[data-admin-tabs]");
+  if (!tablist) return;
+  const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+  const panelFor = (tab) => document.getElementById(tab.getAttribute("aria-controls"));
+
+  const activate = (tab, { focus = false, remember = true } = {}) => {
+    tabs.forEach((item) => {
+      const selected = item === tab;
+      item.setAttribute("aria-selected", String(selected));
+      item.tabIndex = selected ? 0 : -1;
+      const panel = panelFor(item);
+      if (!panel) return;
+      if (selected && panel.hidden) {
+        panel.hidden = false;
+        panel.classList.add("is-entering");
+        panel.addEventListener("animationend", () => panel.classList.remove("is-entering"), { once: true });
+      } else if (!selected) {
+        panel.hidden = true;
+        panel.classList.remove("is-entering");
+      }
+    });
+    // Remember the section without navigating or touching the scroll position.
+    if (remember) {
+      const url = new URL(window.location.href);
+      const key = tab.dataset.adminTab;
+      url.searchParams.set("seccion", key);
+      if (key !== "sucursales") url.searchParams.delete("editar");
+      url.hash = "";
+      history.replaceState(null, "", url);
+    }
+    if (focus) tab.focus({ preventScroll: true });
+  };
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => activate(tab));
+    tab.addEventListener("keydown", (event) => {
+      const last = tabs.length - 1;
+      const target = { ArrowRight: tabs[index === last ? 0 : index + 1], ArrowLeft: tabs[index === 0 ? last : index - 1], Home: tabs[0], End: tabs[last] }[event.key];
+      if (!target) return;
+      event.preventDefault();
+      activate(target, { focus: true });
+    });
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   bindThemeControl();
   bindMobileNavigation();
@@ -443,5 +489,6 @@ document.addEventListener("DOMContentLoaded", () => {
   bindExpenseCategories();
   bindHistoryPeriod();
   bindFillNow();
+  bindAdminTabs();
   buildCharts();
 });

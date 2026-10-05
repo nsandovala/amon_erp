@@ -18,6 +18,24 @@ def resolve_database_uri(database_url=None):
     return database_url
 
 
+ADMISSION_MODES = ("allowlist", "membership")
+DEFAULT_ADMISSION_MODE = "allowlist"
+
+
+def resolve_admission_mode(value=None):
+    """Validate AMON_ADMISSION_MODE; unset/blank keeps the transitional default.
+
+    Anything else that is not a known mode is a configuration error: never a
+    silent fallback (least of all to the more permissive "membership").
+    """
+    mode = (value or "").strip().lower() or DEFAULT_ADMISSION_MODE
+    if mode not in ADMISSION_MODES:
+        raise RuntimeError(
+            f"AMON_ADMISSION_MODE inválido ({value!r}). Valores permitidos: {', '.join(ADMISSION_MODES)}."
+        )
+    return mode
+
+
 def local_secret_key():
     secret_path = BASE_DIR / "instance" / ".secret_key"
     env_secret = (
@@ -44,6 +62,7 @@ class Config:
     AMON_ALLOWED_USER_IDS = [value.strip() for value in os.environ.get(
         'AMON_ALLOWED_USER_IDS', ''
     ).split(',') if value.strip()]
+    AMON_ADMISSION_MODE = resolve_admission_mode(os.environ.get('AMON_ADMISSION_MODE'))
     AUTH_TEST_BYPASS = False
     SECRET_KEY = local_secret_key()
     SQLALCHEMY_DATABASE_URI = resolve_database_uri()

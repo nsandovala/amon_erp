@@ -367,8 +367,15 @@
   .admin-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0 0 var(--space-4); color: var(--text-secondary); font-size: 13px; }
   .admin-meta b { color: var(--text); }
   .admin-tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-bottom: var(--space-5); border-bottom: 1px solid var(--border); }
-  .admin-tabs a { margin-bottom: -1px; padding: 9px 14px; border-bottom: 2px solid transparent; color: var(--text-secondary); font-size: 14px; font-weight: 600; }
-  .admin-tabs a:hover { color: var(--text); border-bottom-color: var(--sand-border); }
+  .admin-tab { margin-bottom: -1px; padding: 9px 14px; border-bottom: 2px solid transparent; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 14px; font-weight: 600; transition: color .15s ease, border-color .15s ease; }
+  .admin-tab:hover { color: var(--text); border-bottom-color: var(--sand-border); }
+  .admin-tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--sand); }
+  .admin-tab:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -3px; border-radius: var(--radius-xs); }
+  .admin-panel { display: grid; gap: var(--space-4); }
+  .admin-panel[hidden] { display: none; }
+  .admin-panel.is-entering { animation: admin-panel-in 150ms ease-out; }
+  @keyframes admin-panel-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .admin-panel.is-entering { animation: none; } .admin-tab { transition: none; } }
   .admin-stack { min-width: 0; max-width: 960px; display: grid; gap: var(--space-4); }
   .admin-section { margin-bottom: 0; scroll-margin-top: calc(var(--topbar-height) + var(--space-4)); }
   .admin-section label { display: grid; gap: var(--space-1); color: var(--text-secondary); font-size: 13px; }
