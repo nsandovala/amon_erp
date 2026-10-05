@@ -37,6 +37,7 @@ from services.backup import create_backup, local_database_path, supports_local_b
 from services.auth import init_auth
 from services.database import database_is_available, record_counts, schema_errors
 from services.metrics import monthly_summary
+from services.tenancy import can_switch_context
 
 
 def create_app(test_config=None):
@@ -104,7 +105,9 @@ def create_app(test_config=None):
             "now_santiago": now_santiago,
             "supports_local_backup": supports_local_backup(app.config["SQLALCHEMY_DATABASE_URI"]),
             "active_organization": getattr(g, "organization", None),
+            "role_labels": {"owner": "Propietario", "manager": "Gerente", "operator": "Operador", "accountant_readonly": "Contador (solo lectura)"},
             "active_branch": getattr(g, "branch", None),
+            "can_switch_context": bool(getattr(g, "user_id", None) and getattr(g, "branch", None) and can_switch_context(g.user_id)),
         }
 
     @app.template_filter("clp")

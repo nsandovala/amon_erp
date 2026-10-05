@@ -37,6 +37,16 @@ def branches_for(organization_id):
     ).order_by(Branch.name).all()
 
 
+def context_choice_count(user_id):
+    """Count valid Organization/Branch combinations this identity could select."""
+    return sum(len(branches_for(item.organization_id)) for item in tenant_options(user_id))
+
+
+def can_switch_context(user_id):
+    """True only when the selector offers a real choice (more than one combination)."""
+    return context_choice_count(user_id) > 1
+
+
 def clear_tenant_selection():
     session.pop("active_organization_id", None)
     session.pop("active_branch_id", None)

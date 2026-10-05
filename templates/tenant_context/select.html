@@ -1,3 +1,74 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}"><title>Seleccionar contexto · AMON ERP</title></head>
-<body><main class="context-selector"><section class="context-card"><p class="eyebrow">AMON ERP</p><h1>Selecciona tu contexto</h1><p>Elige una organización y una sucursal autorizadas para continuar.</p><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Organización<select name="organization_id" required>{% for membership in memberships %}<option value="{{ membership.organization_id }}">{{ membership.organization.name }}</option>{% endfor %}</select></label><label>Sucursal<select name="branch_id">{% for membership in memberships %}{% for branch in branches_by_organization[membership.organization_id] %}<option value="{{ branch.id }}">{{ membership.organization.name }} · {{ branch.name }}</option>{% endfor %}{% endfor %}</select></label><button class="button button-primary" type="submit">Continuar</button></form></section></main></body></html>
+<html lang="es" data-theme="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Seleccionar contexto · AMON ERP</title>
+  {% include 'partials/theme_bootstrap.html' %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</head>
+<body class="auth-page">
+  <main class="auth-shell">
+    <div class="auth-toolbar">{% include 'partials/theme_control.html' %}</div>
+    <header class="auth-brand"><span class="brand-mark" aria-hidden="true">A</span><div><p class="eyebrow">AMON ERP</p><h1>Selecciona tu contexto</h1><p>Elige una organización y una sucursal autorizadas para continuar.</p></div></header>
+    <section class="panel auth-panel" aria-label="Selección de contexto">
+      <form method="post" id="context-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="form-group">
+          <label for="organization_id">Organización</label>
+          <select name="organization_id" id="organization_id" required>
+            <option value="" disabled {% if not selected_organization_id %}selected{% endif %}>Selecciona una organización</option>
+            {% for membership in memberships %}
+              <option value="{{ membership.organization_id }}" {% if membership.organization_id == selected_organization_id %}selected{% endif %}>
+                {{ membership.organization.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="branch_id">Sucursal</label>
+          <select name="branch_id" id="branch_id" required>
+            <option value="" disabled selected>Selecciona primero una organización</option>
+          </select>
+        </div>
+        <button class="button button-primary" type="submit" id="submit-btn" disabled>Continuar</button>
+      </form>
+      <script>
+        const orgSelect = document.getElementById('organization_id');
+        const branchSelect = document.getElementById('branch_id');
+        const submitBtn = document.getElementById('submit-btn');
+        const branchesData = {{ branches_by_organization | tojson }};
+        const selectedBranchId = {{ selected_branch_id | tojson }};
+
+        function updateBranches() {
+          const orgId = orgSelect.value;
+          branchSelect.innerHTML = '<option value="" disabled selected>Selecciona una sucursal</option>';
+          if (orgId && branchesData[orgId]) {
+            branchesData[orgId].forEach(branch => {
+              const opt = document.createElement('option');
+              opt.value = branch.id;
+              opt.textContent = branch.name;
+              if (branch.id === selectedBranchId) opt.selected = true;
+              branchSelect.appendChild(opt);
+            });
+            branchSelect.disabled = false;
+          } else {
+            branchSelect.disabled = true;
+          }
+          submitBtn.disabled = !orgSelect.value || !branchSelect.value;
+        }
+
+        orgSelect.addEventListener('change', updateBranches);
+        branchSelect.addEventListener('change', () => {
+          submitBtn.disabled = !orgSelect.value || !branchSelect.value;
+        });
+
+        // Initial load: reflect the organization/branch already active, if any.
+        if (orgSelect.value) updateBranches();
+      </script>
+    </section>
+  </main>
+</body>
+</html>

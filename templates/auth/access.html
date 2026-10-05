@@ -18,14 +18,17 @@
       {% if auth_unavailable %}
         <h2>Acceso temporalmente no disponible</h2>
         <p>Revisa la configuración de autenticación o vuelve a intentar más tarde.</p>
-      {% elif g.user_id and not g.erp_access %}
-        <h2>Tu cuenta no tiene acceso a AMON ERP.</h2>
-        <p>Usa otra cuenta autorizada.</p>
-        {% include 'auth/controls.html' %}
-      {% else %}
+      {% elif not g.user_id %}
         <h2>Acceso a AMON ERP</h2>
         <p>Accede con una cuenta autorizada.</p>
         {% include 'auth/controls.html' %}
+      {% else %}
+        <h2>Tu cuenta no tiene acceso a AMON ERP.</h2>
+        <p>Pide a un administrador de tu organización que te agregue, o cierra sesión para usar otra cuenta autorizada.</p>
+        <div class="auth-actions">
+          <button class="button button-primary" type="button" data-auth-sign-out>Cerrar sesión e ingresar con otra cuenta</button>
+        </div>
+        <p class="account-status" data-auth-status role="status"></p>
       {% endif %}
     </section>
   </main>

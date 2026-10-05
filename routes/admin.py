@@ -7,7 +7,8 @@ from models.membership import MEMBERSHIP_ROLES, Membership
 from models.organization import ORGANIZATION_ENTITY_TYPES, Organization
 from services.audit import create_audit_log
 from services.authorization import require_admin_view, require_owner
-from services.tenant_admin import change_membership_role, change_membership_status, create_branch, create_membership
+from services.clerk_directory import ClerkDirectoryError, find_user_id_by_email, identities_for
+from services.tenant_admin import archive_branch as archive_branch_record, change_membership_role, change_membership_status, create_branch, create_membership
 from services.tenancy import branches_for
 
 
@@ -33,9 +34,10 @@ def _commit(message):
 @require_admin_view
 def index():
     organization = _organization_or_404()
+    memberships = db_session.query(Membership).filter(Membership.organization_id == organization.id).order_by(Membership.id).all()
     return render_template(
         "admin/index.html", organization=organization, branches=branches_for(organization.id),
-        memberships=db_session.query(Membership).filter(Membership.organization_id == organization.id).order_by(Membership.clerk_user_id).all(),
+        memberships=memberships, identities=identities_for([item.clerk_user_id for item in memberships]),
         roles=MEMBERSHIP_ROLES, entity_types=ORGANIZATION_ENTITY_TYPES,
     )
 
@@ -89,7 +91,11 @@ def update_branch(branch_id):
 @require_owner
 def archive_branch(branch_id):
     branch = _branch_or_404(branch_id)
-    branch.status = "archived"
+    try:
+        archive_branch_record(branch)
+    except ValueError as error:
+        flash(str(error), "error")
+        return redirect(url_for("admin.index"))
     db_session.add(create_audit_log("branch.archived", "branch", branch.id, {"status": "active"}, {"status": "archived"}))
     response = _commit("Sucursal archivada.")
     if branch.id == getattr(g, "branch_id", None):
@@ -107,8 +113,18 @@ def _membership_or_404(membership_id):
 @require_owner
 def add_membership():
     organization = _organization_or_404()
+    if request.form.get("role") not in MEMBERSHIP_ROLES:
+        abort(400)
     try:
-        membership = create_membership(organization.id, request.form.get("clerk_user_id"), request.form.get("role"))
+        clerk_user_id = find_user_id_by_email(request.form.get("email"))
+    except ClerkDirectoryError:
+        flash("No se pudo consultar el directorio de cuentas. Intenta nuevamente.", "error")
+        return redirect(url_for("admin.index"))
+    if clerk_user_id is None:
+        flash("No existe una cuenta con ese email. La persona debe crear su cuenta antes de recibir acceso.", "error")
+        return redirect(url_for("admin.index"))
+    try:
+        membership = create_membership(organization.id, clerk_user_id, request.form.get("role"))
         db_session.flush()
     except ValueError:
         db_session.rollback(); abort(400)

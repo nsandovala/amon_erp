@@ -54,3 +54,50 @@ def test_memberships_are_unique_and_second_owner_allows_change(app):
         owner = db_session.query(Membership).filter(Membership.clerk_user_id == "user_a").one()
         change_membership_role(owner, "manager")
         assert second.role == "owner"
+
+
+def _org_with_branches(slug, count):
+    organization = Organization(name=slug, slug=slug, entity_type="company")
+    db_session.add(organization); db_session.flush()
+    branches = [Branch(organization_id=organization.id, name=f"{slug}-{i}", slug=f"b{i}") for i in range(count)]
+    db_session.add_all(branches); db_session.flush()
+    return organization, branches
+
+
+def test_last_active_branch_cannot_be_archived(app):
+    from services.tenant_admin import archive_branch
+    _org, (only,) = _org_with_branches("solo", 1)
+    with pytest.raises(ValueError, match="al menos una sucursal activa"):
+        archive_branch(only)
+    assert only.status == "active"
+
+
+def test_branch_can_be_archived_until_one_remains(app):
+    from services.tenant_admin import archive_branch
+    _org, (first, second) = _org_with_branches("dos", 2)
+    archive_branch(first)
+    assert first.status == "archived"
+    with pytest.raises(ValueError):
+        archive_branch(second)
+    assert second.status == "active"
+
+
+def test_other_organizations_branches_never_count_for_the_invariant(app):
+    from services.tenant_admin import active_branch_count, archive_branch
+    _org_a, (only_a,) = _org_with_branches("a", 1)
+    _org_b, _branches_b = _org_with_branches("b", 3)
+    assert active_branch_count(only_a.organization_id) == 1
+    with pytest.raises(ValueError):
+        archive_branch(only_a)
+    assert only_a.status == "active"
+
+
+def test_archived_branches_do_not_count_and_cannot_be_archived_twice(app):
+    from services.tenant_admin import archive_branch
+    _org, (first, second, third) = _org_with_branches("tres", 3)
+    archive_branch(first)
+    with pytest.raises(ValueError, match="ya no está activa"):
+        archive_branch(first)
+    archive_branch(second)
+    with pytest.raises(ValueError, match="al menos una"):
+        archive_branch(third)
