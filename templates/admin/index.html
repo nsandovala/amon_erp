@@ -7,6 +7,9 @@
 {% set person_status = {'active': 'Activo', 'inactive': 'Inactivo'} %}
 {% set active_members = memberships|selectattr('status', 'equalto', 'active')|list|length %}
 {% set editing_branch_id = request.args.get('editar', '')|int(0) %}
+{% set tabs = [('empresa', 'Empresa'), ('sucursales', 'Sucursales'), ('equipo', 'Equipo y permisos')] %}
+{% set requested_tab = request.args.get('seccion', '') %}
+{% set active_tab = requested_tab if requested_tab in ['empresa', 'sucursales', 'equipo'] else 'empresa' %}
 
 <p class="admin-meta" aria-label="Resumen administrativo">
   <span><b>{{ organization.name }}</b></span>
@@ -16,11 +19,15 @@
   <span>{{ branches|length }} {{ 'sucursal activa' if branches|length == 1 else 'sucursales activas' }}</span>
 </p>
 
-<nav class="admin-tabs" aria-label="Secciones de administración">
-  <a href="#empresa">Empresa</a><a href="#sucursales">Sucursales</a><a href="#equipo">Equipo y permisos</a>
-</nav>
+<div class="admin-tabs" role="tablist" aria-label="Secciones de administración" data-admin-tabs>
+  {% for key, label in tabs %}
+  <button type="button" role="tab" id="tab-{{ key }}" class="admin-tab" aria-controls="panel-{{ key }}" aria-selected="{{ 'true' if key == active_tab else 'false' }}" tabindex="{{ 0 if key == active_tab else -1 }}" data-admin-tab="{{ key }}">{{ label }}</button>
+  {% endfor %}
+</div>
+<noscript><style>.admin-panel[hidden] { display: block !important; } .admin-tabs { display: none; }</style></noscript>
 
-<div class="admin-stack">
+<div class="admin-stack" data-admin-panels>
+  <div role="tabpanel" id="panel-empresa" class="admin-panel" aria-labelledby="tab-empresa" data-admin-panel="empresa" {% if active_tab != 'empresa' %}hidden{% endif %}>
   <section class="panel admin-section" id="empresa" aria-labelledby="empresa-title">
     <div class="panel-head"><h2 id="empresa-title">Empresa</h2></div>
     {% if is_owner %}
@@ -37,6 +44,9 @@
     {% endif %}
   </section>
 
+  </div>
+
+  <div role="tabpanel" id="panel-sucursales" class="admin-panel" aria-labelledby="tab-sucursales" data-admin-panel="sucursales" {% if active_tab != 'sucursales' %}hidden{% endif %}>
   <section class="panel admin-section" id="sucursales" aria-labelledby="sucursales-title">
     <div class="panel-head"><h2 id="sucursales-title">Sucursales</h2></div>
     <ul class="branch-list">
@@ -47,14 +57,14 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <label>Nombre<input name="name" value="{{ branch.name }}" required></label>
           <label>Identificador<input name="slug" value="{{ branch.slug }}" required></label>
-          <div class="form-actions"><button class="button button-primary button-compact">Guardar</button><a class="button button-secondary button-compact" href="{{ url_for('admin.index') }}#sucursales">Cancelar</a></div>
+          <div class="form-actions"><button class="button button-primary button-compact">Guardar</button><a class="button button-secondary button-compact" href="{{ url_for('admin.index', seccion='sucursales') }}">Cancelar</a></div>
         </form>
         {% else %}
         <div class="branch-main"><strong>{{ branch.name }}</strong><small>{{ branch.slug }}</small></div>
         <span class="status {{ branch.status }}">{{ org_status.get(branch.status, branch.status) }}</span>
         {% if is_owner %}
         <div class="branch-actions">
-          <a class="button button-secondary button-compact" href="{{ url_for('admin.index', editar=branch.id) }}#sucursales">Editar</a>
+          <a class="button button-secondary button-compact" href="{{ url_for('admin.index', seccion='sucursales', editar=branch.id) }}">Editar</a>
           <form method="post" action="{{ url_for('admin.archive_branch', branch_id=branch.id) }}" data-confirm="¿Archivar la sucursal {{ branch.name }}? Dejará de estar disponible para operar.">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button class="button button-secondary button-compact" {% if branches|length < 2 %}disabled title="Debe existir al menos una sucursal activa."{% endif %}>Archivar</button>
@@ -79,6 +89,9 @@
   </section>
   {% endif %}
 
+  </div>
+
+  <div role="tabpanel" id="panel-equipo" class="admin-panel" aria-labelledby="tab-equipo" data-admin-panel="equipo" {% if active_tab != 'equipo' %}hidden{% endif %}>
   <section class="panel admin-section" id="equipo" aria-labelledby="equipo-title">
     <div class="panel-head"><h2 id="equipo-title">Equipo y permisos</h2></div>
     <ul class="member-list">
@@ -124,10 +137,11 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <label>Email de la cuenta<input type="email" name="email" placeholder="persona@empresa.com" autocomplete="off" required></label>
       <label>Rol<select name="role">{% for role in roles %}<option value="{{ role }}">{{ role_labels.get(role, role) }}</option>{% endfor %}</select></label>
-      <p class="form-hint form-grid-full">La persona debe tener una cuenta AMON creada. Si el email no existe, no se crea automáticamente.</p>
+      <p class="form-hint form-grid-full">La persona debe tener una cuenta AMON con ese email verificado. No se crean cuentas automáticamente.</p>
       <div class="form-actions form-grid-full"><button class="button button-primary">Agregar acceso</button></div>
     </form>
   </section>
   {% endif %}
+  </div>
 </div>
 {% endblock %}

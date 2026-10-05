@@ -1,6 +1,13 @@
-"""Clerk validates identity; the local allowlist controls ERP admission.
+"""Clerk validates identity; the local Membership decides ERP admission.
 
-No Clerk role/organization claims grant AMON permissions. Full RBAC is deferred.
+AMON_ADMISSION_MODE selects how admission is decided (always fail-closed):
+- "allowlist" (transitional default): the Clerk user id must be in
+  AMON_ALLOWED_USER_IDS *and* resolve to a valid local tenant context.
+- "membership": the allowlist is ignored; a valid local tenant context (active
+  Membership, active Organization, active Branch) is the only admission rule.
+
+No Clerk role/organization claim ever grants AMON permissions: roles and tenancy
+come from the local Membership.
 """
 import base64
 import binascii
@@ -10,6 +17,7 @@ from clerk_backend_api.security import authenticate_request
 from clerk_backend_api.security.types import AuthenticateRequestOptions
 from flask import abort, g, redirect, render_template, request, url_for
 
+from config import resolve_admission_mode
 from services.tenancy import TenantResolutionError, TenantSelectionRequired, resolve_request_tenant
 
 
@@ -27,6 +35,7 @@ def frontend_domain(key):
 def init_auth(app):
     if app.config['AUTH_TEST_BYPASS'] and not app.testing:
         raise RuntimeError('AUTH_TEST_BYPASS solo se permite en tests.')
+    admission_mode = resolve_admission_mode(app.config.get('AMON_ADMISSION_MODE'))
 
     @app.context_processor
     def auth_context():
@@ -73,15 +82,18 @@ def init_auth(app):
                 and payload.get('sts') != 'pending'
                 and payload.get('azp') in app.config['CLERK_AUTHORIZED_PARTIES']):
             g.user_id = payload['sub']
-            g.erp_access = g.user_id in app.config['AMON_ALLOWED_USER_IDS']
+            # The allowlist is an extra gate only in "allowlist" mode; in "membership"
+            # mode the local tenant resolution below is the sole admission rule.
+            g.erp_access = (admission_mode == 'membership'
+                            or g.user_id in app.config['AMON_ALLOWED_USER_IDS'])
             if g.erp_access:
                 try:
                     resolve_request_tenant(g.user_id)
                 except TenantSelectionRequired:
                     g.tenant_selection_required = True
                 except TenantResolutionError:
-                    # The legacy allowlist authenticates an identity but never
-                    # grants tenant access without an active local membership.
+                    # An authenticated identity never gets tenant access without an
+                    # active local Membership, Organization and Branch.
                     g.erp_access = False
         selector_endpoint = 'tenant_context.selector'
         if request.endpoint == 'auth_access':

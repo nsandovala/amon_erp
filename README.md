@@ -48,10 +48,12 @@ Aplicación local-first para controlar las finanzas del food truck The Best Burg
 ### Auth Foundation (Clerk + Flask)
 
 Clerk verifica identidad con `authenticate_request()` en cada petición y Flask
-expone `g.user_id`. Las rutas del ERP requieren además que el identificador esté
-en `AMON_ALLOWED_USER_IDS`. Registrarse no otorga acceso. Esta lista local es una
-barrera inicial; la matriz RBAC `owner`, `manager`, `operator` y
-`accountant_readonly` queda pendiente. No se utilizan roles de Clerk.
+expone `g.user_id`. Clerk es **solo identidad**: ni sus roles, ni `org_role`, ni
+sus organizaciones otorgan nada en AMON ERP. La admisión, los roles
+(`owner`, `manager`, `operator`, `accountant_readonly`), las organizaciones y las
+sucursales viven en el modelo local (`Membership`, `Organization`, `Branch`) y se
+validan en el servidor en cada petición. No hay auto-provisioning: registrarse en
+Clerk no otorga acceso.
 
 La clave de sesión se lee desde `SECRET_KEY`. Por compatibilidad con
 instalaciones anteriores también se acepta `TBB_SECRET_KEY`. Si ninguna está
@@ -59,24 +61,44 @@ definida en desarrollo local, se utiliza `instance/.secret_key`, ignorado por Gi
 En producción `SECRET_KEY` debe definirse mediante variables de entorno.
 
 Configura localmente `.env.local` (ignorado por Git) con `CLERK_PUBLISHABLE_KEY`,
-`CLERK_SECRET_KEY`, `CLERK_AUTHORIZED_PARTIES` y `AMON_ALLOWED_USER_IDS`.
+`CLERK_SECRET_KEY`, `CLERK_AUTHORIZED_PARTIES`, `AMON_ADMISSION_MODE` y, mientras
+se use el modo `allowlist`, `AMON_ALLOWED_USER_IDS`. `CLERK_SECRET_KEY` también
+se usa, solo en lectura, para mostrar nombre/email/avatar de los miembros y para
+resolver emails verificados al agregar accesos.
 Las variables exportadas tienen prioridad sobre `.env.local` y `.env`.
 No publiques ni compartas la clave secreta.
 
 - `CLERK_AUTHORIZED_PARTIES`: orígenes separados por coma; por defecto
   `http://127.0.0.1:5000,http://localhost:5000`. Usa los orígenes exactos del
   despliegue cuando corresponda.
-- `AMON_ALLOWED_USER_IDS`: identificadores Clerk aprobados, separados por coma.
-  Por defecto está vacía y ningún usuario entra al ERP.
-  - Clerk Authentication Foundation está implementada.
-- Clerk verifica identidad y AMON ERP mantiene una allowlist explícita de usuarios autorizados.
-- El RBAC definitivo (`owner`, `manager`, `operator`, `accountant_readonly`) todavía está pendiente.
-- PostgreSQL/Neon y despliegue productivo todavía están pendientes.
+- `AMON_ADMISSION_MODE`: cómo se decide la admisión al ERP. Valores válidos:
+  `allowlist` (por defecto, transitorio) y `membership` (modo objetivo para
+  staging/producción). Cualquier otro valor es un error de configuración y la
+  aplicación no arranca; no existe fallback silencioso.
+  - `allowlist`: la identidad Clerk debe estar en `AMON_ALLOWED_USER_IDS` **y**
+    resolver un contexto local válido (Membership activa, Organization activa y
+    Branch activa).
+  - `membership`: `AMON_ALLOWED_USER_IDS` se ignora; basta con que la identidad
+    Clerk válida resuelva un contexto local válido (o requiera elegir entre varios).
+    Sin Membership activa, Organization activa o Branch activa no hay acceso.
+- `AMON_ALLOWED_USER_IDS`: identificadores Clerk separados por coma. Solo se
+  evalúa en modo `allowlist`; por defecto está vacía.
 
-Tras iniciar Flask, visita `/auth` y selecciona **Crear cuenta**. Después de
-verificar la cuenta aparecerá el control de perfil. La pantalla muestra el
-identificador de la cuenta para que el administrador lo incorpore a la lista
-local y reinicie Flask. Luego selecciona **Entrar al ERP**.
+Estado: Clerk Authentication, RBAC local por Membership, multi-organización con
+aislamiento por organización/sucursal y administración (F2.3–F2.5) están
+implementados. PostgreSQL/Neon se usa vía `DATABASE_URL`; el despliegue
+productivo y la migración de datos SQLite → Neon siguen pendientes.
+
+**Agregar acceso (Administración › Equipo y permisos)**: un owner indica email y
+rol. El servidor consulta Clerk, exige que esa dirección exacta pertenezca a una
+cuenta existente y esté **verificada**, y solo entonces crea la Membership con el
+`clerk_user_id` (el email nunca es la autoridad ni se guarda). No se crean cuentas
+de Clerk. Revocar es desactivar la Membership. El primer owner se concede con
+`flask --app app tenant-grant`.
+
+Flujo de ingreso: inicia sesión en `/auth`; si la cuenta tiene acceso entra al ERP
+(o elige organización/sucursal en `/contexto/`); si no, `/auth` explica que no tiene
+acceso y permite cerrar sesión.
 
 La interfaz usa ClerkJS por CDN en Jinja; no requiere npm ni un frontend SPA.
 Sin claves válidas el servidor deniega acceso (503). Los tests financieros usan

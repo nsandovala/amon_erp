@@ -78,27 +78,59 @@ def identities_for(user_ids):
     return found
 
 
-def find_user_id_by_email(email):
-    """Resolve an exact email to a Clerk user id; None if no such user.
+@dataclass(frozen=True)
+class EmailResolution:
+    """Outcome of resolving an exact email to a Clerk account.
 
-    Raises ClerkDirectoryError when Clerk cannot be consulted, so callers can
-    tell "no such user" from "directory unavailable". No user is ever created.
+    status: "found" (verified match, user_id set), "unverified" (the address is
+    attached to an account but not verified) or "not_found".
+    """
+    status: str
+    user_id: str | None = None
+
+
+def _is_verified(email_address):
+    """True only for an explicit Clerk verification status of "verified".
+
+    `verification` is None for never-verified addresses; statuses such as
+    unverified/failed/expired/transferable never count.
+    """
+    status = getattr(getattr(email_address, "verification", None), "status", None)
+    return getattr(status, "value", status) == "verified"
+
+
+def resolve_user_by_email(email):
+    """Resolve an exact, *verified* email to a Clerk user id (read-only).
+
+    The requested address itself must belong to the account and be verified; an
+    unverified claim on the same address never wins over a verified one. Several
+    verified matches (not expected) fail closed as not_found. Raises
+    ClerkDirectoryError when Clerk cannot be consulted. No user is ever created.
     """
     wanted = (email or "").strip().lower()
     if not wanted or "@" not in wanted or len(wanted) > 254:
-        return None
+        return EmailResolution("not_found")
     try:
         users = _client().users.list(
-            request={"email_address": [wanted], "limit": 2}, timeout_ms=LOOKUP_TIMEOUT_MS,
+            request={"email_address": [wanted], "limit": 10}, timeout_ms=LOOKUP_TIMEOUT_MS,
         )
     except ClerkDirectoryError:
         raise
     except Exception:
         current_app.logger.warning("Clerk directory unavailable")
         raise ClerkDirectoryError("No se pudo consultar Clerk.") from None
-    matches = []
+    verified, unverified = set(), set()
     for user in users or []:
-        emails = [e.email_address.lower() for e in (getattr(user, "email_addresses", None) or []) if isinstance(getattr(e, "email_address", None), str)]
-        if wanted in emails:
-            matches.append(user.id)
-    return matches[0] if len(matches) == 1 else None
+        user_id = getattr(user, "id", None)
+        if not (isinstance(user_id, str) and user_id.startswith("user_")):
+            continue
+        for candidate in getattr(user, "email_addresses", None) or []:
+            address = getattr(candidate, "email_address", None)
+            if isinstance(address, str) and address.strip().lower() == wanted:
+                (verified if _is_verified(candidate) else unverified).add(user_id)
+                break
+    if len(verified) == 1:
+        return EmailResolution("found", next(iter(verified)))
+    if not verified and unverified:
+        return EmailResolution("unverified")
+    return EmailResolution("not_found")

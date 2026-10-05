@@ -13,8 +13,8 @@
 
 ## Tests
 
-- F2.0, F2.1 y F2.2 están integrados en el baseline `4bff8e7`; F2.3 añade administración local y selector de contexto.
-- Suite: pytest.
+- F2.0–F2.4 están integrados en `main` (baseline `fc01c64`); F2.5 (admisión por Membership) está en la rama `feature/f2.5-membership-admission`.
+- Suite: pytest (315 passed, sin skips; el modo `membership` se prueba configurándolo explícitamente en el fixture).
 
 ## Funcionalidades entregadas en F0
 
@@ -83,6 +83,21 @@
 - Las rutas, agregaciones, exportaciones y acciones por ID resuelven una membresía local y aplican scope servidor por organización/sucursal.
 - Existe un CLI administrativo explícito e idempotente para la primera membresía (`flask tenant-grant`); no se aprovisionan owners automáticamente.
 
+## F2.3–F2.4 administración, RBAC y UX de cuenta implementados
+
+- RBAC local por `Membership.role` (`owner`, `manager`, `operator`, `accountant_readonly`), aplicado server-side; owner administra, manager ve administración.
+- Administración (Empresa, Sucursales, Equipo y permisos), selector de contexto (`/contexto/`, `?force=1`) y menú de cuenta con cierre de sesión por la API oficial de Clerk.
+- Invariante de dominio: una Organization conserva al menos una Branch activa (`services/tenant_admin.archive_branch`, con row lock en PostgreSQL) y al menos un owner activo.
+- `services/clerk_directory.py`: capa de solo lectura sobre Clerk para nombre/email/avatar y resolución de email; no persiste nada ni autoriza.
+
+## F2.5 admisión por Membership implementada
+
+- `AMON_ADMISSION_MODE` (`allowlist` por defecto | `membership`); un valor inválido es error de configuración (la app no arranca).
+- `allowlist`: Clerk válido + `AMON_ALLOWED_USER_IDS` + contexto local válido (Membership, Organization y Branch activas). Es el comportamiento histórico y el default transitorio.
+- `membership`: `AMON_ALLOWED_USER_IDS` no participa; el contexto local válido es la única regla de admisión. Es el modo objetivo para staging/producción y se activa explícitamente.
+- "Agregar acceso" por email exige que esa dirección exacta esté verificada en Clerk (`verification.status == "verified"`), crea la Membership con `clerk_user_id` y nunca crea cuentas de Clerk. No se confía en roles/organizaciones de Clerk.
+- Sin migraciones ni cambios de esquema.
+
 ## Limitaciones actuales
 
 - No proveedores.
@@ -91,7 +106,7 @@
 - No conciliación bancaria.
 - No IVA avanzado.
 - No deploy a Render.
-- Clerk Auth Foundation existe; los roles locales mínimos se resuelven por Membership, sin RBAC de interfaz adicional.
+- Pendiente operativo: activar `AMON_ADMISSION_MODE=membership` primero en staging (el default sigue siendo `allowlist`).
 - No migración de datos SQLite a Neon.
 - No integración con AMON Shop.
 - No estrategia productiva de backup PostgreSQL definida todavía.
@@ -99,8 +114,8 @@
 
 ## Estado del repositorio
 
-- Rama activa: `feature/f2.3-tenant-admin`.
-- Baseline: `4bff8e7 merge: integrate F2 organization and tenant foundation`.
+- Rama activa: `feature/f2.5-membership-admission`.
+- Baseline: `fc01c64 merge: complete F2.4 account and tenant experience`.
 - F2 incluye migración aislada y cobertura A/B de aislamiento de tenant.
 
 ## Próxima fase planificada

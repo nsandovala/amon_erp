@@ -93,7 +93,10 @@ def create_app(test_config=None):
             session["csrf_token"] = token
         return {
             "csrf_token": token,
-            "open_session": active_work_session() if getattr(g, 'erp_access', False) else None,
+            # No work session exists before a tenant context is chosen (e.g. the context selector).
+            "open_session": active_work_session() if getattr(g, 'erp_access', False) and (
+                getattr(g, 'branch_id', None) is not None or not getattr(g, 'tenant_enforced', True)
+            ) else None,
             "payment_labels": PAYMENT_LABELS,
             "format_clp": format_clp,
             "format_datetime": format_datetime,

@@ -15,7 +15,7 @@ from models.branch import Branch
 from models.membership import Membership
 from models.organization import Organization
 from services import clerk_directory
-from services.clerk_directory import ClerkDirectoryError, find_user_id_by_email, identities_for
+from services.clerk_directory import ClerkDirectoryError, identities_for, resolve_user_by_email
 
 from test_auth import auth_app, signed_token, signing_key, verified_client  # noqa: F401  (shared auth fixtures)
 
@@ -29,8 +29,9 @@ def no_real_clerk():
         yield blocked
 
 
-def fake_user(user_id, first=None, last=None, email=None, image=None, username=None):
-    emails = [SimpleNamespace(id="idn_1", email_address=email)] if email else []
+def fake_user(user_id, first=None, last=None, email=None, image=None, username=None, verified=True):
+    verification = SimpleNamespace(status="verified" if verified else "unverified") if email else None
+    emails = [SimpleNamespace(id="idn_1", email_address=email, verification=verification)] if email else []
     return SimpleNamespace(
         id=user_id, first_name=first, last_name=last, username=username,
         email_addresses=emails, primary_email_address_id="idn_1" if email else None,
@@ -163,8 +164,8 @@ def test_non_admin_roles_get_no_gestion_group_or_admin_access(auth_app, verified
 
 def test_admin_structure_has_three_sections_and_compact_meta(verified_client, signing_key):
     html = get(verified_client, signing_key, "/administracion/").get_data(as_text=True)
-    tabs = re.search(r'<nav class="admin-tabs".*?</nav>', html, re.S).group(0)
-    assert [t for t in re.findall(r"<a [^>]*>(.*?)</a>", tabs)] == ["Empresa", "Sucursales", "Equipo y permisos"]
+    tabs = re.search(r'<div class="admin-tabs" role="tablist".*?</div>', html, re.S).group(0)
+    assert re.findall(r'<button [^>]*role="tab"[^>]*>(.*?)</button>', tabs) == ["Empresa", "Sucursales", "Equipo y permisos"]
     assert 'class="admin-meta"' in html and "Tu rol: Propietario" in html
     assert "1 miembro activo" in html and "1 sucursal activa" in html
     assert "kpi" not in html.lower().split("<main")[1]
@@ -297,20 +298,21 @@ def test_clerk_directory_requests_only_requested_ids(auth_app):
     assert seen == [{"user_id": ["a", "b"], "limit": 2}]
 
 
-def test_find_user_id_by_email_exact_and_unambiguous(auth_app):
+def test_resolve_user_by_email_exact_and_unambiguous(auth_app):
     with auth_app.app_context():
         with mock_clerk([fake_user("user_x", email="Ana@Empresa.cl")]):
-            assert find_user_id_by_email("  ana@empresa.CL ") == "user_x"
+            found = resolve_user_by_email("  ana@empresa.CL ")
+            assert (found.status, found.user_id) == ("found", "user_x")
         with mock_clerk([fake_user("user_x", email="otra@empresa.cl")]):
-            assert find_user_id_by_email("ana@empresa.cl") is None
+            assert resolve_user_by_email("ana@empresa.cl").status == "not_found"
         with mock_clerk([fake_user("user_x", email="a@b.cl"), fake_user("user_y", email="a@b.cl")]):
-            assert find_user_id_by_email("a@b.cl") is None
+            assert resolve_user_by_email("a@b.cl").status == "not_found"
         with mock_clerk([]):
-            assert find_user_id_by_email("nadie@b.cl") is None
-        assert find_user_id_by_email("sin-arroba") is None
+            assert resolve_user_by_email("nadie@b.cl").status == "not_found"
+        assert resolve_user_by_email("sin-arroba").status == "not_found"
         with mock_clerk(error=RuntimeError("secret detail")):
             with pytest.raises(ClerkDirectoryError) as caught:
-                find_user_id_by_email("a@b.cl")
+                resolve_user_by_email("a@b.cl")
         assert "secret detail" not in str(caught.value)
 
 
@@ -475,3 +477,228 @@ def only_branch_id_for(app, organization_name):
 def auth_app_org_id(app, organization_name):
     with app.app_context():
         return db_session.query(Organization).filter_by(name=organization_name).one().id
+
+
+# ---------- F2.5: alta por email — el email exacto debe estar verificado ----------
+
+def user_with_emails(user_id, *emails):
+    """emails: (address, status|None) pairs; status None means verification is null."""
+    return SimpleNamespace(
+        id=user_id, first_name=None, last_name=None, username=None, image_url=None, has_image=False,
+        primary_email_address_id=None,
+        email_addresses=[
+            SimpleNamespace(id=f"idn_{i}", email_address=address,
+                            verification=SimpleNamespace(status=status) if status else None)
+            for i, (address, status) in enumerate(emails)
+        ],
+    )
+
+
+def post_access_followed(client, key, **data):
+    with client.session_transaction() as session:
+        session["csrf_token"] = "t"
+    client.set_cookie("__session", signed_token(key))
+    return client.post("/administracion/accesos", data={"csrf_token": "t", **data}, follow_redirects=True)
+
+
+def test_verified_email_creates_membership_with_clerk_user_id_only(auth_app, verified_client, signing_key):
+    with mock_clerk([user_with_emails(LONG_ID, ("nuevo@empresa.cl", "verified"))]):
+        html = post_access_followed(verified_client, signing_key, email="Nuevo@Empresa.cl", role="manager").get_data(as_text=True)
+    assert "Acceso creado." in html
+    with auth_app.app_context():
+        created = db_session.query(Membership).filter_by(clerk_user_id=LONG_ID).one()
+        assert (created.role, created.status) == ("manager", "active")
+        assert "email" not in {column.name for column in Membership.__table__.columns}
+        from models.audit_log import AuditLog
+        log = db_session.query(AuditLog).filter_by(action="membership.created").one()
+        assert LONG_ID in log.new_values and "nuevo@empresa.cl" not in (log.new_values or "").lower()
+
+
+@pytest.mark.parametrize("status", ["unverified", "failed", "expired", "transferable", None])
+def test_unverified_email_is_rejected_without_membership(auth_app, verified_client, signing_key, status):
+    before = membership_ids(auth_app)
+    with mock_clerk([user_with_emails(LONG_ID, ("nuevo@empresa.cl", status))]):
+        html = post_access_followed(verified_client, signing_key, email="nuevo@empresa.cl", role="operator").get_data(as_text=True)
+    assert "aún no está verificado" in html and "Acceso creado." not in html
+    assert membership_ids(auth_app) == before
+
+
+def test_the_requested_address_itself_must_be_verified(auth_app, verified_client, signing_key):
+    """A verified *other* address on the same account must not vouch for the requested one."""
+    before = membership_ids(auth_app)
+    users = [user_with_emails(LONG_ID, ("otro@empresa.cl", "verified"), ("nuevo@empresa.cl", "unverified"))]
+    with mock_clerk(users):
+        html = post_access_followed(verified_client, signing_key, email="nuevo@empresa.cl", role="operator").get_data(as_text=True)
+    assert "aún no está verificado" in html and membership_ids(auth_app) == before
+
+
+def test_unverified_claimant_never_beats_the_verified_owner_of_the_address(auth_app):
+    users = [user_with_emails("user_claimant", ("a@b.cl", "unverified")), user_with_emails("user_owner", ("a@b.cl", "verified"))]
+    with auth_app.app_context(), mock_clerk(users):
+        resolved = resolve_user_by_email("a@b.cl")
+    assert (resolved.status, resolved.user_id) == ("found", "user_owner")
+    with auth_app.app_context(), mock_clerk([user_with_emails("user_claimant", ("a@b.cl", "unverified"))]):
+        assert resolve_user_by_email("a@b.cl").status == "unverified"
+
+
+def test_unknown_email_is_rejected_with_its_own_message(auth_app, verified_client, signing_key):
+    before = membership_ids(auth_app)
+    with mock_clerk([]):
+        html = post_access_followed(verified_client, signing_key, email="nadie@empresa.cl", role="operator").get_data(as_text=True)
+    assert "No existe una cuenta con ese email" in html and "verificado" not in html.split("No existe")[1][:120]
+    assert membership_ids(auth_app) == before
+
+
+def test_clerk_directory_failure_fails_closed_without_leaking(auth_app, verified_client, signing_key):
+    before = membership_ids(auth_app)
+    with mock_clerk(error=RuntimeError("sk_test_super_secret trace")):
+        response = post_access_followed(verified_client, signing_key, email="a@b.cl", role="operator")
+    html = response.get_data(as_text=True)
+    assert response.status_code == 200 and "No se pudo consultar el directorio" in html
+    assert "super_secret" not in html and membership_ids(auth_app) == before
+
+
+def test_duplicate_membership_is_reported_not_duplicated(auth_app, verified_client, signing_key):
+    add_member(auth_app)
+    before = membership_ids(auth_app)
+    with mock_clerk([user_with_emails(LONG_ID, ("nuevo@empresa.cl", "verified"))]):
+        response = post_access_followed(verified_client, signing_key, email="nuevo@empresa.cl", role="owner")
+    assert response.status_code == 200 and "ya tiene acceso" in response.get_data(as_text=True)
+    assert membership_ids(auth_app) == before
+    with auth_app.app_context():
+        assert db_session.query(Membership).filter_by(clerk_user_id=LONG_ID).one().role == "operator"
+
+
+def test_no_clerk_account_is_ever_created(auth_app, verified_client, signing_key):
+    calls = []
+    users = SimpleNamespace(
+        list=lambda request, timeout_ms=None: [],
+        create=lambda *a, **k: calls.append("create"), update=lambda *a, **k: calls.append("update"),
+    )
+    with patch.object(clerk_directory, "_client", return_value=SimpleNamespace(users=users)):
+        post_access_followed(verified_client, signing_key, email="nadie@empresa.cl", role="operator")
+    assert calls == []
+
+
+# ---------- Admin: tabs reales (sin anchors ni scroll) ----------
+
+TAB_KEYS = ["empresa", "sucursales", "equipo"]
+
+
+def tab_state(html):
+    tabs = {m.group("key"): m.group(0) for m in re.finditer(r'<button[^>]*role="tab"[^>]*data-admin-tab="(?P<key>\w+)"[^>]*>', html)}
+    panels = {m.group("key"): m.group(0) for m in re.finditer(r'<div role="tabpanel"[^>]*data-admin-panel="(?P<key>\w+)"[^>]*>', html)}
+    return tabs, panels
+
+
+def test_admin_tabs_follow_the_aria_tabs_pattern_without_anchors(verified_client, signing_key):
+    html = get(verified_client, signing_key, "/administracion/").get_data(as_text=True)
+    tabs, panels = tab_state(html)
+    assert list(tabs) == TAB_KEYS and list(panels) == TAB_KEYS
+    assert 'role="tablist"' in html and 'aria-label="Secciones de administración"' in html
+    for key in TAB_KEYS:
+        assert f'aria-controls="panel-{key}"' in tabs[key] and f'id="tab-{key}"' in tabs[key]
+        assert f'id="panel-{key}"' in panels[key] and f'aria-labelledby="tab-{key}"' in panels[key]
+        assert 'type="button"' in tabs[key]
+    tablist = html[html.index('role="tablist"'):html.index("data-admin-panels")]
+    assert "<a " not in tablist and 'href="#' not in html.split("<main")[1]
+
+
+def test_admin_default_tab_is_empresa_and_only_one_panel_is_visible(verified_client, signing_key):
+    tabs, panels = tab_state(get(verified_client, signing_key, "/administracion/").get_data(as_text=True))
+    assert [k for k in TAB_KEYS if 'aria-selected="true"' in tabs[k]] == ["empresa"]
+    assert [k for k in TAB_KEYS if " hidden" not in panels[k]] == ["empresa"]
+    assert 'tabindex="0"' in tabs["empresa"] and all('tabindex="-1"' in tabs[k] for k in TAB_KEYS[1:])
+
+
+@pytest.mark.parametrize("section", TAB_KEYS)
+def test_admin_section_param_selects_the_panel(verified_client, signing_key, section):
+    tabs, panels = tab_state(get(verified_client, signing_key, f"/administracion/?seccion={section}").get_data(as_text=True))
+    assert [k for k in TAB_KEYS if 'aria-selected="true"' in tabs[k]] == [section]
+    assert [k for k in TAB_KEYS if " hidden" not in panels[k]] == [section]
+
+
+def test_unknown_section_param_falls_back_safely(verified_client, signing_key):
+    html = get(verified_client, signing_key, "/administracion/?seccion=%3Cscript%3E").get_data(as_text=True)
+    tabs, _panels = tab_state(html)
+    assert 'aria-selected="true"' in tabs["empresa"] and "<script>" not in html.split("<main")[1]
+
+
+def test_every_panel_keeps_its_sections_and_permissions(auth_app, verified_client, signing_key):
+    html = get(verified_client, signing_key, "/administracion/").get_data(as_text=True)
+    panel = lambda key: html[html.index(f'id="panel-{key}"'):]
+    assert 'id="empresa"' in panel("empresa").split('id="panel-sucursales"')[0]
+    middle = panel("sucursales").split('id="panel-equipo"')[0]
+    assert 'id="sucursales"' in middle and 'id="nueva-sucursal"' in middle
+    last = panel("equipo")
+    assert 'id="equipo"' in last and 'id="nuevo-acceso"' in last
+    set_role(auth_app, "manager")
+    managed = get(verified_client, signing_key, "/administracion/").get_data(as_text=True)
+    assert 'id="nueva-sucursal"' not in managed and 'id="nuevo-acceso"' not in managed
+    assert all(f'id="panel-{k}"' in managed for k in TAB_KEYS)
+
+
+def test_branch_edit_links_use_section_param_not_hash(verified_client, signing_key):
+    html = get(verified_client, signing_key, "/administracion/?seccion=sucursales").get_data(as_text=True)
+    assert re.search(r'href="/administracion/\?seccion=sucursales&amp;editar=\d+"', html)
+    editing = get(verified_client, signing_key, "/administracion/?seccion=sucursales&editar=1").get_data(as_text=True)
+    assert 'href="/administracion/?seccion=sucursales"' in editing and "#sucursales" not in editing
+
+
+def location_section(response):
+    return re.search(r"seccion=(\w+)", response.location).group(1)
+
+
+def test_posts_return_to_the_panel_they_came_from(auth_app, verified_client, signing_key):
+    def post(path, **data):
+        with verified_client.session_transaction() as session:
+            session["csrf_token"] = "t"
+        verified_client.set_cookie("__session", signed_token(signing_key))
+        return verified_client.post(path, data={"csrf_token": "t", **data})
+
+    branch_id = only_branch_id(auth_app)
+    organization_id = auth_app_org_id(auth_app, "The Best Burger")  # the first POST renames it
+    with auth_app.app_context():
+        membership_id = db_session.query(Membership).one().id
+    assert location_section(post("/administracion/organizacion", name="Nueva", entity_type="company")) == "empresa"
+    assert location_section(post("/administracion/sucursales", name="Centro", slug="centro")) == "sucursales"
+    select_context(verified_client, signing_key, organization_id, branch_id)  # two branches: choose one
+    assert location_section(post(f"/administracion/sucursales/{branch_id}", name="Principal", slug="principal")) == "sucursales"
+    with auth_app.app_context():
+        centro_id = db_session.query(Branch).filter_by(slug="centro").one().id
+    assert location_section(post(f"/administracion/sucursales/{centro_id}/archivar")) == "sucursales"
+    assert location_section(post(f"/administracion/accesos/{membership_id}/rol", role="owner")) == "equipo"
+    with mock_clerk([]):
+        assert location_section(post("/administracion/accesos", email="nadie@x.cl", role="operator")) == "equipo"
+    with mock_clerk(error=RuntimeError("down")):
+        assert location_section(post("/administracion/accesos", email="nadie@x.cl", role="operator")) == "equipo"
+
+
+def test_rejected_last_branch_archive_returns_to_sucursales_with_message(auth_app, verified_client, signing_key):
+    branch_id = only_branch_id(auth_app)
+    with verified_client.session_transaction() as session:
+        session["csrf_token"] = "t"
+    verified_client.set_cookie("__session", signed_token(signing_key))
+    response = verified_client.post(f"/administracion/sucursales/{branch_id}/archivar", data={"csrf_token": "t"}, follow_redirects=True)
+    html = response.get_data(as_text=True)
+    assert "al menos una sucursal activa" in html
+    tabs, _panels = tab_state(html)
+    assert 'aria-selected="true"' in tabs["sucursales"]
+
+
+def test_tab_script_contract_has_no_scroll_or_hash_navigation():
+    js = (ROOT / "static/js/app.js").read_text(encoding="utf-8")
+    body = js[js.index("function bindAdminTabs"):js.index('document.addEventListener("DOMContentLoaded"')]
+    assert "location.hash" not in body and "scrollIntoView" not in body and "scrollTo" not in body
+    assert "history.replaceState" in body and "preventScroll: true" in body
+    for key in ("ArrowRight", "ArrowLeft", "Home", "End"):
+        assert key in body
+    assert "aria-selected" in body and "panel.hidden" in body and "bindAdminTabs();" in js
+
+
+def test_tab_css_contract_brief_transition_and_reduced_motion():
+    css = (ROOT / "static/css/app.css").read_text(encoding="utf-8")
+    duration = int(re.search(r"\.admin-panel\.is-entering \{ animation: admin-panel-in (\d+)ms", css).group(1))
+    assert 120 <= duration <= 180
+    assert re.search(r"prefers-reduced-motion: reduce\) \{ \.admin-panel\.is-entering \{ animation: none; \}", css)
+    assert ".admin-panel[hidden] { display: none; }" in css
