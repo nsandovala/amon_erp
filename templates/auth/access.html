@@ -13,24 +13,44 @@
 <body class="auth-page">
   <main class="auth-shell">
     <div class="auth-toolbar">{% include 'partials/theme_control.html' %}</div>
-    <header class="auth-brand"><span class="brand-mark" aria-hidden="true">A</span><div><p class="eyebrow">Producto AMON</p><h1>AMON ERP</h1><p>Accede con una cuenta autorizada.</p></div></header>
-    <section class="panel auth-panel" aria-label="Acceso seguro">
-      {% if auth_unavailable %}
-        <h2>Acceso temporalmente no disponible</h2>
-        <p>Revisa la configuración de autenticación o vuelve a intentar más tarde.</p>
-      {% elif not g.user_id %}
-        <h2>Acceso a AMON ERP</h2>
-        <p>Accede con una cuenta autorizada.</p>
-        {% include 'auth/controls.html' %}
-      {% else %}
-        <h2>Tu cuenta no tiene acceso a AMON ERP.</h2>
-        <p>Pide a un administrador de tu organización que te agregue, o cierra sesión para usar otra cuenta autorizada.</p>
-        <div class="auth-actions">
-          <button class="button button-primary" type="button" data-auth-sign-out>Cerrar sesión e ingresar con otra cuenta</button>
-        </div>
-        <p class="account-status" data-auth-status role="status"></p>
-      {% endif %}
+    <header class="auth-brand"><span class="brand-mark" aria-hidden="true">A</span><div><p class="eyebrow">Producto AMON</p><h1>AMON ERP</h1></div></header>
+    {% if auth_unavailable %}
+    <section class="panel auth-panel" aria-labelledby="auth-title" data-auth-state="unavailable">
+      <h2 id="auth-title">Acceso temporalmente no disponible</h2>
+      <p>Revisa la configuración de autenticación o vuelve a intentar más tarde.</p>
+      <p class="auth-note">Si el problema continúa, contacta al administrador de tu cuenta.</p>
     </section>
+    {% elif not g.user_id %}
+    <section class="panel auth-panel" aria-labelledby="auth-title" data-auth-panel data-auth-state="anonymous">
+      <div data-auth-view="signed-out">
+        <h2 id="auth-title">Gestiona tu negocio desde un solo lugar.</h2>
+        <p>Ingresa con tu cuenta AMON para continuar.</p>
+        <div class="auth-actions"><button class="button button-primary auth-cta" type="button" data-auth-sign-in disabled>Iniciar sesión</button></div>
+        <p class="auth-note">El acceso a una empresa requiere autorización.</p>
+        <noscript><p class="auth-note">Activa JavaScript para iniciar sesión.</p></noscript>
+      </div>
+      <div data-auth-view="verifying" hidden>
+        <h2>Verificando acceso…</h2>
+        <p>Estamos confirmando tu sesión. Esto toma solo un momento.</p>
+      </div>
+      <div data-auth-view="verify-failed" hidden>
+        <h2>No pudimos verificar tu acceso</h2>
+        <p>Tu sesión se inició, pero el servidor aún no la reconoce. Reintenta o ingresa con otra cuenta.</p>
+        <div class="auth-actions">
+          <button class="button button-primary" type="button" data-auth-retry>Reintentar</button>
+          <button class="button button-secondary" type="button" data-auth-sign-out>Usar otra cuenta</button>
+        </div>
+      </div>
+      <p class="auth-status" data-auth-status role="status"></p>
+    </section>
+    {% else %}
+    <section class="panel auth-panel" aria-labelledby="auth-title" data-auth-state="no-access">
+      <h2 id="auth-title">Tu cuenta está activa, pero aún no tiene acceso a una organización.</h2>
+      <p>Pide al administrador que te agregue.</p>
+      <div class="auth-actions"><button class="button button-primary" type="button" data-auth-sign-out>Usar otra cuenta</button></div>
+      <p class="auth-status" data-auth-status role="status"></p>
+    </section>
+    {% endif %}
   </main>
 </body>
 </html>

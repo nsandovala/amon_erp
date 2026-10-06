@@ -155,7 +155,7 @@ def test_admission_matrix(world, user):
     if response.status_code == 302:
         assert response.location == "/contexto/"
     if response.status_code == 403:
-        assert "Tu cuenta no tiene acceso a AMON ERP." in response.get_data(as_text=True)
+        assert "Tu cuenta está activa, pero aún no tiene acceso a una organización." in response.get_data(as_text=True)
 
 
 def test_member_not_allowlisted_follows_mode(world):

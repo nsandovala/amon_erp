@@ -80,8 +80,8 @@ def test_public_access_does_not_query_finances(auth_app):
     with patch('app.active_work_session', side_effect=AssertionError('financial query')):
         response = auth_app.test_client().get('/auth')
     assert response.status_code == 200
-    assert b'Acceso a AMON ERP' in response.data
-    assert b'Accede con una cuenta autorizada.' in response.data
+    assert 'Gestiona tu negocio desde un solo lugar.'.encode() in response.data
+    assert b'Ingresa con tu cuenta AMON para continuar.' in response.data
     assert b'Crear cuenta' not in response.data
     assert b'sk_test_not_a_real_key' not in response.data
 
@@ -130,7 +130,7 @@ def test_multiple_valid_memberships_require_context_selection(auth_app, verified
 def test_signed_in_account_without_access_sees_safe_access_state(verified_client, signing_key):
     response = verified_client.get('/auth', headers={'Authorization': 'Bearer ' + signed_token(signing_key, sub='user_new')})
     assert response.status_code == 200
-    assert b'Tu cuenta no tiene acceso a AMON ERP.' in response.data
+    assert 'Tu cuenta está activa, pero aún no tiene acceso a una organización.'.encode() in response.data
     assert b'user_new' not in response.data
 
 
@@ -154,7 +154,7 @@ def test_signup_does_not_grant_access_or_trust_clerk_role(verified_client, signi
         signing_key, sub='user_new', role='owner', org_role='org:admin')})
     assert response.status_code == 403
     html = response.get_data(as_text=True)
-    assert "Tu cuenta no tiene acceso a AMON ERP." in html
+    assert "Tu cuenta está activa, pero aún no tiene acceso a una organización." in html
     assert "The Best Burger" not in html
     assert "user_new" not in html
 

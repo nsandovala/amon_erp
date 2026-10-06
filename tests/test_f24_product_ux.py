@@ -388,20 +388,20 @@ def test_shell_has_account_menu_with_signout_for_authenticated_user(verified_cli
 
 def test_signout_uses_official_clerk_api_without_custom_credentials():
     js = (ROOT / "static/js/auth.js").read_text(encoding="utf-8")
-    assert "clerk.signOut({ redirectUrl: '/auth' })" in js
+    assert "clerk.signOut({ redirectUrl: AUTH_PATH })" in js and "const AUTH_PATH = '/auth';" in js
     assert "clerk.openUserProfile()" in js
     assert "document.cookie" not in js and "localStorage" not in js
 
 
 def test_auth_page_semantics(auth_app, verified_client, signing_key):
     anonymous = auth_app.test_client().get("/auth").get_data(as_text=True)
-    assert "Acceso a AMON ERP" in anonymous and "data-auth-sign-out" not in anonymous
+    assert "Gestiona tu negocio desde un solo lugar." in anonymous and anonymous.count("data-auth-sign-out") == 1 and 'data-auth-view="verify-failed" hidden' in anonymous  # only in the hidden error view
     denied = get(verified_client, signing_key, "/auth")
     # authorized identities are sent straight into the ERP
     assert denied.status_code == 302 and denied.location == "/"
     stranger = verified_client.get("/auth", headers={"Authorization": "Bearer " + signed_token(signing_key, sub="user_new")})
     html = stranger.get_data(as_text=True)
-    assert stranger.status_code == 200 and "Tu cuenta no tiene acceso a AMON ERP." in html
+    assert stranger.status_code == 200 and "Tu cuenta está activa, pero aún no tiene acceso a una organización." in html
     assert "data-auth-sign-out" in html and "user_new" not in html
     template = (ROOT / "templates/auth/access.html").read_text(encoding="utf-8")
     assert "Ir al resumen" not in template and "Bienvenido de nuevo" not in template
