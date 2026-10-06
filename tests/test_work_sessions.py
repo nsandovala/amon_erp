@@ -330,6 +330,123 @@ def test_historical_preview_and_association_are_safe(app):
         assert db_session.query(AuditLog).filter(AuditLog.action == "associate_historical_movement").count() == 2
 
 
+def _tenant_world():
+    """Org A (branches A1, A2) and org B (B1); returns {name: (organization_id, branch_id)}."""
+    from models.branch import Branch
+    from models.organization import Organization
+    a = Organization(name="A", slug="a", entity_type="company")
+    b = Organization(name="B", slug="b", entity_type="company")
+    db_session.add_all([a, b]); db_session.flush()
+    branches = [Branch(organization_id=a.id, name="A1", slug="a1"), Branch(organization_id=a.id, name="A2", slug="a2"),
+                Branch(organization_id=b.id, name="B1", slug="b1")]
+    db_session.add_all(branches); db_session.flush()
+    return {"A": (a.id, branches[0].id), "A2": (a.id, branches[1].id), "B": (b.id, branches[2].id)}
+
+
+def _unassociated(tenant, hour=12, amount=1000):
+    org, branch = tenant
+    sale = Sale(organization_id=org, branch_id=branch, occurred_at=datetime(2026, 7, 10, hour), amount=amount,
+                payment_method="cash", channel="food_truck")
+    expense = Expense(organization_id=org, branch_id=branch, occurred_at=datetime(2026, 7, 10, hour), amount=amount // 2,
+                      category="Insumos", expense_type="operational", payment_method="cash", description="x")
+    db_session.add_all([sale, expense]); db_session.flush()
+    return sale, expense
+
+
+def _closed_session(tenant):
+    org, branch = tenant
+    work_session = WorkSession(organization_id=org, branch_id=branch, business_date=datetime(2026, 7, 10).date(),
+                               opened_at=datetime(2026, 7, 10, 10), closed_at=datetime(2026, 7, 10, 20),
+                               opening_cash=0, closing_cash_counted=0, status="closed")
+    db_session.add(work_session); db_session.flush()
+    return work_session
+
+
+def test_historical_preview_and_association_never_cross_organizations(app):
+    with app.app_context():
+        tenants = _tenant_world()
+        a_sale, a_expense = _unassociated(tenants["A"])
+        b_sale, b_expense = _unassociated(tenants["B"], amount=777000)
+        session_a = _closed_session(tenants["A"])
+        db_session.commit()
+
+        preview = historical_movement_preview(session_a)
+        assert [s.id for s in preview["sales"]] == [a_sale.id] and [e.id for e in preview["expenses"]] == [a_expense.id]
+        assert preview["sales_total"] == 1000 and preview["expenses_total"] == 500   # none of B's money is visible
+
+        assert associate_historical_movements(session_a) == 2
+        db_session.commit()
+        assert (a_sale.work_session_id, a_expense.work_session_id) == (session_a.id, session_a.id)
+        assert (b_sale.work_session_id, b_expense.work_session_id) == (None, None)
+        logs = db_session.query(AuditLog).filter(AuditLog.action == "associate_historical_movement").all()
+        assert sorted((log.entity_type, log.entity_id) for log in logs) == sorted([("sale", a_sale.id), ("expense", a_expense.id)])
+
+        # Tenant B is symmetric: its own session sees only B's movements.
+        session_b = _closed_session(tenants["B"])
+        db_session.commit()
+        assert [s.id for s in historical_movement_preview(session_b)["sales"]] == [b_sale.id]
+        assert associate_historical_movements(session_b) == 2
+        db_session.commit()
+        assert (a_sale.work_session_id, a_expense.work_session_id) == (session_a.id, session_a.id)  # untouched by B
+
+
+def test_historical_preview_and_association_never_cross_branches_of_one_organization(app):
+    with app.app_context():
+        tenants = _tenant_world()
+        a1_sale, a1_expense = _unassociated(tenants["A"])
+        a2_sale, a2_expense = _unassociated(tenants["A2"], amount=555000)
+        session_a1 = _closed_session(tenants["A"])
+        db_session.commit()
+
+        preview = historical_movement_preview(session_a1)
+        assert [s.id for s in preview["sales"]] == [a1_sale.id] and [e.id for e in preview["expenses"]] == [a1_expense.id]
+        assert associate_historical_movements(session_a1) == 2
+        db_session.commit()
+        assert (a2_sale.work_session_id, a2_expense.work_session_id) == (None, None)
+        assert db_session.query(AuditLog).filter(AuditLog.action == "associate_historical_movement").count() == 2
+
+
+def test_association_keeps_every_existing_historical_rule_inside_the_tenant(app):
+    with app.app_context():
+        tenants = _tenant_world()
+        org, branch = tenants["A"]
+        session_a = _closed_session(tenants["A"])
+        other_session = _closed_session(tenants["A"])
+        eligible_sale, eligible_expense = _unassociated(tenants["A"])
+        ineligible = [
+            Sale(organization_id=org, branch_id=branch, occurred_at=datetime(2026, 7, 10, 11), amount=10, payment_method="cash", channel="food_truck", status="archived"),
+            Sale(organization_id=org, branch_id=branch, occurred_at=datetime(2026, 7, 10, 11), amount=10, payment_method="cash", channel="food_truck", deleted_at=datetime(2026, 7, 11)),
+            Sale(organization_id=org, branch_id=branch, occurred_at=datetime(2026, 7, 10, 21), amount=10, payment_method="cash", channel="food_truck"),  # after closing
+            Sale(organization_id=org, branch_id=branch, occurred_at=datetime(2026, 7, 10, 11), amount=10, payment_method="cash", channel="food_truck", work_session_id=other_session.id),
+            Expense(organization_id=org, branch_id=branch, occurred_at=datetime(2026, 7, 10, 11), amount=10, category="Equipamiento", expense_type="investment", payment_method="cash", description="inv"),
+        ]
+        db_session.add_all(ineligible); db_session.commit()
+        preview = historical_movement_preview(session_a)
+        assert [s.id for s in preview["sales"]] == [eligible_sale.id] and [e.id for e in preview["expenses"]] == [eligible_expense.id]
+        assert associate_historical_movements(session_a) == 2
+        db_session.commit()
+        assert ineligible[3].work_session_id == other_session.id
+        assert all(item.work_session_id is None for item in ineligible[:3] + ineligible[4:])
+
+
+def test_untenanted_legacy_session_only_matches_untenanted_movements(app):
+    """Pre-tenant rows (no organization/branch) never mix with real tenants' movements."""
+    with app.app_context():
+        tenants = _tenant_world()
+        _unassociated(tenants["A"], amount=999000)
+        legacy_sale = add_sale(None, 4000, occurred_at=datetime(2026, 7, 10, 12))
+        legacy = make_session(opened_at=datetime(2026, 7, 10, 10), closed_at=datetime(2026, 7, 10, 20), counted_cash=0)
+        db_session.commit()
+        assert [s.id for s in historical_movement_preview(legacy)["sales"]] == [legacy_sale.id]
+        assert historical_movement_preview(legacy)["sales_total"] == 4000
+
+
+def test_preview_has_no_way_to_skip_the_tenant_scope():
+    import inspect
+    assert list(inspect.signature(historical_movement_preview).parameters) == ["work_session"]
+    assert list(inspect.signature(associate_historical_movements).parameters) == ["work_session"]
+
+
 def test_open_form_derives_business_date_and_accepts_zero_cash(client, app, csrf):
     response = client.post("/jornadas/", data={
         **csrf,
