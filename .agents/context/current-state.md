@@ -4,6 +4,7 @@
 
 - **F0**: motor de jornadas y caja confiable.
 - **F1**: rediseño ERP minimalista y cierre de hallazgos del mini QA.
+- **F2**: multiusuario/multitenant COMPLETADO: Organization, Branch, Membership, aislamiento tenant, RBAC, UX de cuenta/tenant y admisión por Membership (F2.0–F2.5). Baseline `main @ 0c83020`.
 
 ## Referencia estable
 
@@ -13,8 +14,9 @@
 
 ## Tests
 
-- F2.0–F2.4 están integrados en `main` (baseline `fc01c64`); F2.5 (admisión por Membership) está en la rama `feature/f2.5-membership-admission`.
-- Suite: pytest (315 passed, sin skips; el modo `membership` se prueba configurándolo explícitamente en el fixture).
+- F2.0–F2.5 están integrados en `main` (baseline `0c83020 merge: complete F2.5 membership admission`).
+- Suite en el baseline: pytest, 315 passed, sin skips; el modo `membership` se prueba configurándolo explícitamente en el fixture.
+- F3.0 (rama `feature/f3-business-cockpit-foundation`) añade `tests/test_f30_cockpit.py` (53 tests).
 
 ## Funcionalidades entregadas en F0
 
@@ -90,13 +92,23 @@
 - Invariante de dominio: una Organization conserva al menos una Branch activa (`services/tenant_admin.archive_branch`, con row lock en PostgreSQL) y al menos un owner activo.
 - `services/clerk_directory.py`: capa de solo lectura sobre Clerk para nombre/email/avatar y resolución de email; no persiste nada ni autoriza.
 
-## F2.5 admisión por Membership implementada
+## F2.5 admisión por Membership implementada (mergeada)
 
 - `AMON_ADMISSION_MODE` (`allowlist` por defecto | `membership`); un valor inválido es error de configuración (la app no arranca).
 - `allowlist`: Clerk válido + `AMON_ALLOWED_USER_IDS` + contexto local válido (Membership, Organization y Branch activas). Es el comportamiento histórico y el default transitorio.
 - `membership`: `AMON_ALLOWED_USER_IDS` no participa; el contexto local válido es la única regla de admisión. Es el modo objetivo para staging/producción y se activa explícitamente.
 - "Agregar acceso" por email exige que esa dirección exacta esté verificada en Clerk (`verification.status == "verified"`), crea la Membership con `clerk_user_id` y nunca crea cuentas de Clerk. No se confía en roles/organizaciones de Clerk.
 - Sin migraciones ni cambios de esquema.
+
+## F3.0 Business Cockpit — fundación de inteligencia determinística (en implementación)
+
+Solo capa de datos; el rediseño visual del cockpit es F3.1. `dashboard.html` no cambia.
+
+- `services/cockpit.py`: comparación contra el período anterior equivalente (`today`→día anterior, `week`→semana anterior, `month`→mes calendario anterior, `prev_month`→mes anterior al seleccionado, `custom`→rango adyacente de igual cantidad de días); métricas comparadas: `total_sales`, `operational_expenses`, `operating_profit`, `average_ticket`, `sales_count` y `operating_margin` (en puntos porcentuales). Con base anterior 0 el estado es `no_base` y no hay porcentaje.
+- Ventas del período por `Sale.channel` (`food_truck`, `pickup`, `delivery`, `other`) y por medio de pago (`cash`, `debit`, `credit`, `transfer`, `other`), con monto, cantidad y porcentaje. Los canales no representan Uber/Shop/etc.
+- Semántica de caja: `calculate_cash_position` (estado de la caja: jornada abierta o última cerrada) y `cash_net_period` (efectivo neto del período). `cash_balance` se conserva sin cambios como métrica legada (ver `accounting-rules.md`).
+- Señales de atención derivadas de reglas existentes: `cash_shortage`, `cash_surplus`, `session_duration_anomalous` (regla de 24 h) y `unassociated_movements`.
+- Todo es lectura, tenant-scoped (Organization + Branch) y sin migraciones.
 
 ## Limitaciones actuales
 
@@ -107,6 +119,7 @@
 - No IVA avanzado.
 - No deploy a Render.
 - Pendiente operativo: activar `AMON_ADMISSION_MODE=membership` primero en staging (el default sigue siendo `allowlist`).
+- Deuda de aislamiento detectada en F3.0 (pendiente de decisión): `services/work_sessions.historical_movement_preview` no filtra por organización/sucursal al buscar movimientos sin jornada.
 - No migración de datos SQLite a Neon.
 - No integración con AMON Shop.
 - No estrategia productiva de backup PostgreSQL definida todavía.
@@ -114,8 +127,8 @@
 
 ## Estado del repositorio
 
-- Rama activa: `feature/f2.5-membership-admission`.
-- Baseline: `fc01c64 merge: complete F2.4 account and tenant experience`.
+- Rama activa: `feature/f3-business-cockpit-foundation`.
+- Baseline: `0c83020 merge: complete F2.5 membership admission`.
 - F2 incluye migración aislada y cobertura A/B de aislamiento de tenant.
 
 ## Próxima fase planificada

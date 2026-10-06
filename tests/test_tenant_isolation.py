@@ -228,3 +228,30 @@ def test_audit_uses_resolved_actor_and_tenant(tenant_client, tenant_setup):
     assert response.status_code == 302
     audit = db_session.query(AuditLog).filter(AuditLog.action == "edit_work_session").one()
     assert (audit.organization_id, audit.branch_id, audit.actor_user_id) == (organization_a_id, branch_a_id, "user_a")
+
+
+def test_associate_movements_route_never_touches_the_other_tenant(app, tenant_client, tenant_setup):
+    organization_a_id, branch_a_id, organization_b_id, branch_b_id = tenant_setup
+    with app.app_context():
+        session_a = WorkSession(organization_id=organization_a_id, branch_id=branch_a_id, business_date=datetime(2026, 10, 3).date(),
+                                opened_at=datetime(2026, 10, 3, 10), closed_at=datetime(2026, 10, 3, 20), opening_cash=0,
+                                closing_cash_counted=0, status="closed")
+        sale_a, sale_b = _sale(organization_a_id, branch_a_id, "venta A"), _sale(organization_b_id, branch_b_id, "venta B")
+        expense_a, expense_b = _expense(organization_a_id, branch_a_id, "gasto A"), _expense(organization_b_id, branch_b_id, "gasto B")
+        db_session.add_all([session_a, sale_a, sale_b, expense_a, expense_b]); db_session.commit()
+        session_a_id, sale_a_id, sale_b_id, expense_a_id, expense_b_id = session_a.id, sale_a.id, sale_b.id, expense_a.id, expense_b.id
+
+    headers = {"X-Test-User": "user_a"}
+    page = tenant_client.get(f"/jornadas/{session_a_id}/asociar-movimientos", headers=headers)
+    html = page.get_data(as_text=True)
+    assert page.status_code == 200 and "venta A" in html and "gasto A" in html
+    assert "venta B" not in html and "gasto B" not in html
+
+    response = tenant_client.post(f"/jornadas/{session_a_id}/asociar-movimientos", data={"csrf_token": "test-token"}, headers=headers)
+    assert response.status_code == 302
+    with app.app_context():
+        db_session.expire_all()
+        assert db_session.get(Sale, sale_a_id).work_session_id == session_a_id
+        assert db_session.get(Expense, expense_a_id).work_session_id == session_a_id
+        assert db_session.get(Sale, sale_b_id).work_session_id is None
+        assert db_session.get(Expense, expense_b_id).work_session_id is None

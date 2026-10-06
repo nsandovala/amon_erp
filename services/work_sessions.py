@@ -133,6 +133,9 @@ def historical_movement_preview(work_session):
     sales = (
         db_session.query(Sale)
         .filter(
+            # The session's own tenant is mandatory: never offer or touch another Organization/Branch.
+            Sale.organization_id == work_session.organization_id,
+            Sale.branch_id == work_session.branch_id,
             Sale.work_session_id.is_(None),
             Sale.occurred_at >= work_session.opened_at,
             Sale.occurred_at <= work_session.closed_at,
@@ -145,6 +148,8 @@ def historical_movement_preview(work_session):
     expenses = (
         db_session.query(Expense)
         .filter(
+            Expense.organization_id == work_session.organization_id,
+            Expense.branch_id == work_session.branch_id,
             Expense.work_session_id.is_(None),
             Expense.occurred_at >= work_session.opened_at,
             Expense.occurred_at <= work_session.closed_at,

@@ -22,6 +22,15 @@
 - **No implementar aún** asientos contables automáticos.
 - **No llamar "ganancia neta"** a un cálculo que no descuenta todos los costos.
 
+## Definiciones de métricas del Business Cockpit (F3.0; no cambian reglas)
+
+- **Efectivo esperado de una jornada**: la regla de F0 de arriba, calculada por `calculate_work_session_metrics`. Es la única definición de "caja esperada" del ERP.
+- **Posición de caja** (`calculate_cash_position`): estado actual de la caja, independiente del período. Si hay una jornada abierta, su efectivo esperado; si no, el de la última jornada cerrada junto con el efectivo contado y la diferencia; si no hay jornadas, sin posición.
+- **Efectivo neto del período** (`cash_net_period`): ventas en efectivo menos gastos operacionales en efectivo del período, sin efectivo inicial ni inversiones.
+- **`cash_balance` (legado)**: suma el `opening_cash` de TODAS las jornadas del período más el efectivo neto, e incluye movimientos sin jornada. No es "caja actual" ni un flujo del período; se conserva sin cambios por compatibilidad y no debe rotularse "Caja actual".
+- **Comparación de períodos**: porcentajes sobre `abs(valor anterior)`, un decimal, redondeo half-up; con valor anterior 0 no se calcula porcentaje (`no_base`). El margen operacional se compara en puntos porcentuales y solo si ambos períodos tienen ventas.
+- **Señales**: solo desde reglas existentes (diferencia de caja de jornadas cerradas, duración > 24 h, movimientos sin `work_session_id`). No hay umbrales ni puntajes nuevos.
+
 ## Reglas pendientes de validación contable
 
 Las siguientes áreas están identificadas pero no documentadas ni implementadas:

@@ -45,14 +45,22 @@
 
 ## F2 — Organizations Foundation
 
-- **Estado**: F2.0 foundation, F2.1 migración versionada, F2.2 aislamiento server-side, F2.3 administración/RBAC y F2.4 UX de cuenta y tenant integrados; F2.5 admisión por Membership en implementación (rama `feature/f2.5-membership-admission`).
+- **Estado**: COMPLETADO (baseline `0c83020`). Incluye Organization, Branch, Membership, aislamiento tenant server-side, RBAC local, UX de cuenta/tenant y admisión por Membership (F2.0–F2.5).
 - Organization, Branch y Membership son entidades propias del ERP.
 - Clerk valida identidad solamente; no entrega roles ni autorización de tenant.
-- F2.5: `AMON_ADMISSION_MODE` (`allowlist` default transitorio, `membership` objetivo) y alta de accesos por email verificado en Clerk.
+- F2.5: `AMON_ADMISSION_MODE` (`allowlist` default transitorio, `membership` objetivo) y alta de accesos por email verificado en Clerk. Activar `membership` en staging/producción es una acción operativa pendiente.
 
-## F3 — Smart Inbox + Documents
+## F3 — Business Cockpit / Dashboard Intelligence
+
+- **Estado**: F3.0 (fundación de métricas/insights determinísticos) en implementación en `feature/f3-business-cockpit-foundation`.
+- F3.0: comparación contra período anterior, ventas por canal y por medio de pago, semántica de caja y señales de atención; sin cambios visuales, sin migraciones.
+- F3.1: rediseño visual del Business Cockpit sobre esas métricas validadas.
+- Sin IA, sin fuentes de venta nuevas, sin conectores externos.
+
+### F3.5 — Smart Inbox + Documents (fase posterior)
 
 - Ingesta y clasificación documental con revisión humana y trazabilidad.
+- Antes era "F3"; se mueve a F3.5 para no renumerar F4–F9 (cambio de numeración a confirmar con el responsable del producto).
 
 ## F4 — AMON Copilot (powered by HEO)
 
