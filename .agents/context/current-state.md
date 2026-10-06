@@ -16,7 +16,8 @@
 
 - F2.0–F2.5 están integrados en `main` (baseline `0c83020 merge: complete F2.5 membership admission`).
 - Suite en el baseline: pytest, 315 passed, sin skips; el modo `membership` se prueba configurándolo explícitamente en el fixture.
-- F3.0 (rama `feature/f3-business-cockpit-foundation`) añade `tests/test_f30_cockpit.py` (53 tests).
+- F3.0 está integrado en `main` (`04842bf`); incluye `tests/test_f30_cockpit.py` y la corrección de aislamiento de `historical_movement_preview`.
+- F3.1 (rama `feature/f3.1-business-cockpit-ux`) añade `tests/test_f31_cockpit_ux.py` (37 tests).
 
 ## Funcionalidades entregadas en F0
 
@@ -100,15 +101,23 @@
 - "Agregar acceso" por email exige que esa dirección exacta esté verificada en Clerk (`verification.status == "verified"`), crea la Membership con `clerk_user_id` y nunca crea cuentas de Clerk. No se confía en roles/organizaciones de Clerk.
 - Sin migraciones ni cambios de esquema.
 
-## F3.0 Business Cockpit — fundación de inteligencia determinística (en implementación)
+## F3.0 Business Cockpit — fundación de inteligencia determinística (mergeada)
 
-Solo capa de datos; el rediseño visual del cockpit es F3.1. `dashboard.html` no cambia.
+Solo capa de datos; el rediseño visual se hizo en F3.1.
 
 - `services/cockpit.py`: comparación contra el período anterior equivalente (`today`→día anterior, `week`→semana anterior, `month`→mes calendario anterior, `prev_month`→mes anterior al seleccionado, `custom`→rango adyacente de igual cantidad de días); métricas comparadas: `total_sales`, `operational_expenses`, `operating_profit`, `average_ticket`, `sales_count` y `operating_margin` (en puntos porcentuales). Con base anterior 0 el estado es `no_base` y no hay porcentaje.
 - Ventas del período por `Sale.channel` (`food_truck`, `pickup`, `delivery`, `other`) y por medio de pago (`cash`, `debit`, `credit`, `transfer`, `other`), con monto, cantidad y porcentaje. Los canales no representan Uber/Shop/etc.
 - Semántica de caja: `calculate_cash_position` (estado de la caja: jornada abierta o última cerrada) y `cash_net_period` (efectivo neto del período). `cash_balance` se conserva sin cambios como métrica legada (ver `accounting-rules.md`).
 - Señales de atención derivadas de reglas existentes: `cash_shortage`, `cash_surplus`, `session_duration_anomalous` (regla de 24 h) y `unassociated_movements`.
 - Todo es lectura, tenant-scoped (Organization + Branch) y sin migraciones.
+
+## F3.1 Business Cockpit UX (en implementación)
+
+Solo UX/wiring de los datos de F3.0; sin cambios de esquema ni de reglas financieras.
+
+- Dashboard reordenado: Estado del negocio (4 KPIs principales con comparación: Ventas, Ganancia operativa, Margen en puntos porcentuales y Ticket promedio; franja secundaria con cantidad de ventas, tiempo trabajado, caja esperada, efectivo neto del período e inversión acumulada) → Tendencia (gráfico de ventas vs gastos, con los gastos operacionales y su variación) junto al panel "Requiere atención" → Composición (doughnuts de ventas por canal y por medio de pago, más gastos por categoría) → Actividad y capital (retorno estimado, diferencias de caja, últimos movimientos) → Resumen mensual.
+- `no_base` se muestra neutral ("Sin período anterior comparable"); la caja usa `cash_position` / `cash_net_period` y ya no se rotula `cash_balance` como "Caja de jornada".
+- Filtro de plantilla `pct_es` (decimales es-CL).
 
 ## Limitaciones actuales
 
@@ -119,7 +128,6 @@ Solo capa de datos; el rediseño visual del cockpit es F3.1. `dashboard.html` no
 - No IVA avanzado.
 - No deploy a Render.
 - Pendiente operativo: activar `AMON_ADMISSION_MODE=membership` primero en staging (el default sigue siendo `allowlist`).
-- Deuda de aislamiento detectada en F3.0 (pendiente de decisión): `services/work_sessions.historical_movement_preview` no filtra por organización/sucursal al buscar movimientos sin jornada.
 - No migración de datos SQLite a Neon.
 - No integración con AMON Shop.
 - No estrategia productiva de backup PostgreSQL definida todavía.
@@ -127,8 +135,8 @@ Solo capa de datos; el rediseño visual del cockpit es F3.1. `dashboard.html` no
 
 ## Estado del repositorio
 
-- Rama activa: `feature/f3-business-cockpit-foundation`.
-- Baseline: `0c83020 merge: complete F2.5 membership admission`.
+- Rama activa: `feature/f3.1-business-cockpit-ux`.
+- Baseline: `04842bf merge: complete F3.0 business cockpit foundation`.
 - F2 incluye migración aislada y cobertura A/B de aislamiento de tenant.
 
 ## Próxima fase planificada

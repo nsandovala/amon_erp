@@ -75,6 +75,7 @@ function buildCharts() {
   const chartSurface = cssToken("--surface");
   Chart.defaults.color = chartText;
   Chart.defaults.borderColor = chartGrid;
+  Chart.defaults.animation = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? false : { duration: 350 };
   Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
 
   const dailyElement = document.getElementById("dailyChart");
@@ -165,6 +166,45 @@ function buildCharts() {
       }));
     }
   }
+
+  buildCompositionChart("channelChart", chartSurface);
+  buildCompositionChart("paymentChart", chartSurface);
+}
+
+// Sales composition doughnuts (channel / payment method). Rows come from the server already
+// translated: [{label, amount, percentage}]; the legend next to the chart is server-rendered.
+function buildCompositionChart(id, surface) {
+  const element = document.getElementById(id);
+  if (!element) return;
+  const rows = parseChartData(element);
+  if (!rows.some((row) => Number(row.amount || 0) > 0)) {
+    setChartEmpty(element, true);
+    return;
+  }
+  const palette = ["--chart-cyan", "--chart-green", "--chart-amber", "--chart-sand", "--chart-muted"].map(cssToken);
+  chartInstances.push(new Chart(element, {
+    type: "doughnut",
+    data: {
+      labels: rows.map((row) => row.label),
+      datasets: [{ data: rows.map((row) => row.amount), backgroundColor: rows.map((_row, index) => palette[index % palette.length]), borderColor: surface, borderWidth: 3, hoverOffset: 3 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "66%",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: cssToken("--chart-tooltip"),
+          titleColor: cssToken("--chart-tooltip-text"),
+          bodyColor: cssToken("--chart-tooltip-text"),
+          borderColor: cssToken("--border-strong"),
+          borderWidth: 1,
+          callbacks: { label: (ctx) => `${ctx.label}: ${formatMoney(ctx.raw)} (${String(rows[ctx.dataIndex].percentage).replace(".", ",")}%)` }
+        }
+      }
+    }
+  }));
 }
 
 function rebuildCharts() {

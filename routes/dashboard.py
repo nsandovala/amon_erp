@@ -4,6 +4,7 @@ from flask import Blueprint, g, render_template, request
 
 from models import db_session
 from models.work_session import WorkSession
+from routes import CHANNEL_LABELS, PAYMENT_LABELS
 from services.metrics import (
     calculate_metrics,
     calculate_return_estimate,
@@ -50,6 +51,8 @@ def index():
         if work_session.status == "closed" and session_metrics.cash_difference:
             cash_differences.append({"session": work_session, "metrics": session_metrics})
     metrics = calculate_metrics(start_dt, end_dt, organization_id, branch_id)
+    channel_rows = sales_by_channel(start_dt, end_dt, organization_id, branch_id)
+    payment_rows = sales_by_payment_method(start_dt, end_dt, organization_id, branch_id)
     return render_template(
         "dashboard.html",
         period=period,
@@ -58,8 +61,10 @@ def index():
         metrics=metrics,
         # F3.0 cockpit foundation (data only; the Business Cockpit UI is F3.1)
         comparison=build_period_comparison(period, start_date, end_date, organization_id, branch_id),
-        sales_by_channel=sales_by_channel(start_dt, end_dt, organization_id, branch_id),
-        sales_by_payment_method=sales_by_payment_method(start_dt, end_dt, organization_id, branch_id),
+        sales_by_channel=channel_rows,
+        sales_by_payment_method=payment_rows,
+        channel_chart=_chart_rows(channel_rows, CHANNEL_LABELS),
+        payment_chart=_chart_rows(payment_rows, PAYMENT_LABELS),
         cash_position=calculate_cash_position(organization_id, branch_id),
         cash_net_period=cash_net_for_period(metrics),
         attention_signals=attention_signals(start_date, end_date, organization_id, branch_id),
@@ -72,6 +77,11 @@ def index():
         cash_differences=cash_differences,
         return_estimate=calculate_return_estimate(organization_id, branch_id),
     )
+
+
+def _chart_rows(rows, labels):
+    """Doughnut rows with translated labels; the same rows feed the chart and its legend."""
+    return [{"label": labels.get(row["key"], row["key"]), "amount": row["amount"], "percentage": row["percentage"]} for row in rows]
 
 
 def _parse_date(value):

@@ -27,25 +27,80 @@
   <button class="button button-primary" type="submit">Aplicar rango</button>
 </form>
 
+{% macro delta(c, unit='pct', inverse=False) -%}
+  {%- if c.state == 'no_base' -%}
+    <span class="delta delta-neutral">Sin período anterior comparable</span>
+  {%- else -%}
+    {%- set favourable = (c.state == 'up') != inverse -%}
+    {%- set tone = 'neutral' if c.state == 'flat' else ('positive' if favourable else 'negative') -%}
+    <span class="delta delta-{{ tone }}">
+      {%- if unit == 'pp' -%}
+        <span class="visually-hidden">{{ 'Subió' if c.state == 'up' else 'Bajó' if c.state == 'down' else 'Sin variación' }}:</span><strong>{{ c.delta_pp|pct_es(true) }} pp</strong>
+      {%- else -%}
+        <span aria-hidden="true">{{ '↑' if c.state == 'up' else '↓' if c.state == 'down' else '→' }}</span><span class="visually-hidden">{{ 'Aumentó' if c.state == 'up' else 'Disminuyó' if c.state == 'down' else 'Sin variación' }}</span><strong>{{ c.delta_pct|abs|pct_es }}%</strong>
+      {%- endif %} <small>vs período anterior</small>
+    </span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro composition(chart_id, kicker, title, chart_rows, empty_hint) %}
+  <article class="section-card chart-card composition-card">
+    <div class="section-heading"><div><p class="section-kicker">{{ kicker }}</p><h2>{{ title }}</h2></div></div>
+    {% if chart_rows %}
+      <div class="composition-body">
+        <div class="chart-box chart-box-donut">
+          <canvas id="{{ chart_id }}" data-chart='{{ chart_rows|tojson }}' role="img" aria-label="{{ title }}: {% for row in chart_rows %}{{ row.label }} {{ row.percentage|pct_es }}%{{ ', ' if not loop.last }}{% endfor %}"></canvas>
+          <div class="chart-empty"><strong>Sin datos para graficar</strong></div>
+        </div>
+        <ul class="composition-legend">
+          {% for row in chart_rows %}
+            <li><i class="swatch swatch-{{ loop.index0 }}" aria-hidden="true"></i><span class="composition-label">{{ row.label }}</span><b class="financial-amount">{{ row.amount|clp }}</b><em>{{ row.percentage|pct_es }}%</em></li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% else %}
+      <div class="empty-state compact-empty"><strong>Sin ventas en el período</strong><span>{{ empty_hint }}</span></div>
+    {% endif %}
+  </article>
+{% endmacro %}
+
+{% set cmp = comparison.metrics %}
+
+<h2 class="cockpit-section-title">Estado del negocio</h2>
 <section class="kpi-primary-grid" aria-label="Indicadores principales">
-  <article class="kpi-primary kpi-sales"><span>Ventas</span><strong class="financial-amount">{{ metrics.total_sales|clp }}</strong><small>Ingresos del periodo</small></article>
-  <article class="kpi-primary kpi-expenses"><span>Gastos operacionales</span><strong class="financial-amount">{{ metrics.operational_expenses|clp }}</strong><small>Sin inversiones</small></article>
-  <article class="kpi-primary kpi-profit"><span>Ganancia operativa</span><strong class="financial-amount">{{ metrics.operating_profit|clp }}</strong><small>Ventas menos operación</small></article>
-  <article class="kpi-primary kpi-margin"><span>Margen operacional</span><strong class="financial-amount">{{ metrics.operating_margin }}%</strong><small>Sobre ventas</small></article>
+  <article class="kpi-primary kpi-sales"><span>Ventas</span><strong class="financial-amount">{{ metrics.total_sales|clp }}</strong>{{ delta(cmp.total_sales) }}</article>
+  <article class="kpi-primary kpi-profit"><span>Ganancia operativa</span><strong class="financial-amount">{{ metrics.operating_profit|clp }}</strong>{{ delta(cmp.operating_profit) }}</article>
+  <article class="kpi-primary kpi-margin"><span>Margen operacional</span>
+    {% if metrics.total_sales %}<strong class="financial-amount">{{ metrics.operating_margin|pct_es }}%</strong>{% else %}<strong class="financial-amount">—</strong>{% endif %}
+    {{ delta(cmp.operating_margin, 'pp') }}</article>
+  <article class="kpi-primary kpi-ticket"><span>Ticket promedio</span><strong class="financial-amount">{{ metrics.average_ticket|clp }}</strong>{{ delta(cmp.average_ticket) }}</article>
 </section>
+<p class="cockpit-compare-note">
+  {% if comparison.previous_period %}Comparado con {{ comparison.previous_period.start|date_cl }}{% if comparison.previous_period.end != comparison.previous_period.start %} – {{ comparison.previous_period.end|date_cl }}{% endif %}{% else %}El rango seleccionado no tiene un período anterior comparable.{% endif %}
+</p>
 
 <section class="kpi-secondary-strip" aria-label="Indicadores secundarios">
-  <div class="kpi-secondary"><span>Ticket promedio</span><strong class="financial-amount">{{ metrics.average_ticket|clp }}</strong></div>
   <div class="kpi-secondary"><span>Cantidad de ventas</span><strong>{{ metrics.sales_count }}</strong></div>
   <div class="kpi-secondary"><span>Tiempo trabajado</span><strong>{{ format_duration(metrics.worked_seconds) }}</strong></div>
-  <div class="kpi-secondary"><span>Caja de jornada</span><strong class="financial-amount amount-blue">{{ metrics.cash_balance|clp }}</strong></div>
+  <div class="kpi-secondary">
+    <span>Caja esperada</span>
+    {% if cash_position.kind == 'no_session' %}
+      <strong class="financial-amount">—</strong><small>Sin posición de caja disponible</small>
+    {% else %}
+      <strong class="financial-amount amount-blue">{{ cash_position.expected_cash|clp }}</strong>
+      <small>{% if cash_position.kind == 'open_session' %}Jornada abierta · {{ cash_position.business_date|date_cl }}{% else %}Última jornada cerrada · {{ cash_position.business_date|date_cl }}{% if cash_position.counted_cash is not none %} · contado {{ cash_position.counted_cash|clp }}{% endif %}{% endif %}</small>
+    {% endif %}
+  </div>
+  <div class="kpi-secondary"><span>Efectivo neto del período</span><strong class="financial-amount {{ 'negative' if cash_net_period < 0 }}">{{ cash_net_period|clp }}</strong><small>Ventas menos gastos en efectivo</small></div>
   <div class="kpi-secondary"><span>Inversión acumulada</span><strong class="financial-amount amount-amber">{{ metrics.investments|clp }}</strong></div>
 </section>
 
+<h2 class="cockpit-section-title">Tendencia y atención</h2>
 <section class="dashboard-grid dashboard-grid-charts">
   <article class="section-card chart-card chart-card-wide">
     <div class="section-heading">
       <div><p class="section-kicker">Operación</p><h2>Ventas versus gastos operacionales</h2></div>
+      <p class="trend-expenses"><span>Gastos operacionales</span> <strong class="financial-amount">{{ metrics.operational_expenses|clp }}</strong> {{ delta(cmp.operational_expenses, inverse=True) }}</p>
     </div>
     <div class="chart-box chart-box-wide">
       <canvas id="dailyChart" data-chart='{{ daily_chart|tojson }}'></canvas>
@@ -53,7 +108,29 @@
     </div>
   </article>
 
-  <article class="section-card chart-card">
+  <article class="section-card attention-panel" aria-labelledby="attention-title">
+    <div class="section-heading"><div><p class="section-kicker">Control</p><h2 id="attention-title">Requiere atención</h2></div>{% if attention_signals %}<span class="attention-count" aria-label="{{ attention_signals|length }} alertas">{{ attention_signals|length }}</span>{% endif %}</div>
+    {% if attention_signals %}
+      <ul class="attention-list">
+        {% for signal in attention_signals %}
+          <li class="attention-item" data-signal="{{ signal.code }}" data-severity="{{ signal.severity }}">
+            <span class="severity severity-{{ signal.severity }}">{{ 'Atención' if signal.severity == 'warning' else 'Informativa' }}</span>
+            <div><strong>{{ signal.title }}</strong><span>{{ signal.count }} {{ 'caso' if signal.count == 1 else 'casos' }}{% if signal.amount %} · <b class="financial-amount">{{ signal.amount|clp }}</b>{% endif %}</span></div>
+            <a class="button button-secondary button-compact" href="{{ url_for(signal.destination.endpoint, **signal.destination.params) }}">Revisar</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="empty-state compact-empty attention-clear"><strong>Sin alertas operativas</strong><span>Los controles del período no requieren atención.</span></div>
+    {% endif %}
+  </article>
+</section>
+
+<h2 class="cockpit-section-title">Composición</h2>
+<section class="dashboard-grid dashboard-grid-composition">
+  {{ composition('channelChart', 'Ventas', 'Ventas por canal', channel_chart, 'Los canales aparecerán cuando registres ventas.') }}
+  {{ composition('paymentChart', 'Ventas', 'Ventas por medio de pago', payment_chart, 'Los medios de pago aparecerán cuando registres ventas.') }}
+  <article class="section-card chart-card composition-card">
     <div class="section-heading"><div><p class="section-kicker">Composición</p><h2>Gastos por categoría</h2></div></div>
     {% if category_chart|length == 1 %}
       <div class="composition-single">
@@ -70,6 +147,7 @@
   </article>
 </section>
 
+<h2 class="cockpit-section-title">Actividad y capital</h2>
 <section class="dashboard-grid dashboard-grid-context">
   <article class="section-card context-investment-card">
     <div class="section-heading"><div><p class="section-kicker">Capital</p><h2>Inversión del proyecto</h2></div></div>
@@ -142,7 +220,7 @@
 </section>
 
 <section class="section-card">
-  <div class="section-heading"><div><p class="section-kicker">Tendencia</p><h2>Resumen mensual</h2></div><a class="button button-secondary button-compact" href="{{ url_for('monthly_summary_csv', year=start_date.year) }}">Exportar CSV</a></div>
+  <div class="section-heading"><div><p class="section-kicker">Histórico</p><h2>Resumen mensual</h2></div><a class="button button-secondary button-compact" href="{{ url_for('monthly_summary_csv', year=start_date.year) }}">Exportar CSV</a></div>
   {% if monthly_rows %}
     <div class="table-wrap table-scroll table-scroll-monthly responsive-table">
       <table class="data-table">

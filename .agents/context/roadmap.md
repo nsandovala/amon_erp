@@ -52,9 +52,9 @@
 
 ## F3 — Business Cockpit / Dashboard Intelligence
 
-- **Estado**: F3.0 (fundación de métricas/insights determinísticos) en implementación en `feature/f3-business-cockpit-foundation`.
+- **Estado**: F3.0 (fundación de métricas/insights determinísticos) mergeada; F3.1 (UX del cockpit) en implementación en `feature/f3.1-business-cockpit-ux`.
 - F3.0: comparación contra período anterior, ventas por canal y por medio de pago, semántica de caja y señales de atención; sin cambios visuales, sin migraciones.
-- F3.1: rediseño visual del Business Cockpit sobre esas métricas validadas.
+- F3.1: rediseño visual del Business Cockpit sobre esas métricas validadas (KPIs con comparación, caja con la nueva semántica, panel de atención y doughnuts de canal y medio de pago).
 - Sin IA, sin fuentes de venta nuevas, sin conectores externos.
 
 ### F3.5 — Smart Inbox + Documents (fase posterior)

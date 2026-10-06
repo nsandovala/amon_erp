@@ -117,6 +117,16 @@ def create_app(test_config=None):
     def clp_filter(value):
         return format_clp(value)
 
+    @app.template_filter("pct_es")
+    def pct_es_filter(value, signed=False):
+        """One-decimal es-CL number (comma separator); negatives use a real minus, `signed` adds '+'."""
+        if value is None:
+            return "—"
+        text = f"{abs(value):.1f}".replace(".", ",")
+        if value < 0 and text != "0,0":
+            return f"−{text}"
+        return f"+{text}" if signed and value > 0 else text
+
     @app.template_filter("dt")
     def dt_filter(value):
         return format_datetime(value)
