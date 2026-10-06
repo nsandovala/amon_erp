@@ -119,6 +119,11 @@ Solo UX/wiring de los datos de F3.0; sin cambios de esquema ni de reglas financi
 - `no_base` se muestra neutral ("Sin período anterior comparable"); la caja usa `cash_position` / `cash_net_period` y ya no se rotula `cash_balance` como "Caja de jornada".
 - Filtro de plantilla `pct_es` (decimales es-CL).
 
+## UX-AUTH-001 flujo de ingreso (en implementación)
+
+- `/auth` es el único punto de entrada: anónimo ve "Iniciar sesión"; tras el sign-in/sign-up de Clerk (`signInForceRedirectUrl` y `signUpForceRedirectUrl` = `/auth`) el cliente refresca el token y navega a `/auth`, y `services/auth.py` decide: dashboard, `/contexto/` o "sin acceso". Sin cambios de modelo, admisión, RBAC ni tenancy.
+- Si Clerk está autenticado pero el servidor aún no reconoce la sesión: "Verificando acceso…" con una única re-verificación (guard en `sessionStorage`); luego un estado de error con "Reintentar" / "Usar otra cuenta". No existe un estado final "Sesión iniciada".
+
 ## Limitaciones actuales
 
 - No proveedores.
