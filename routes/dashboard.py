@@ -14,6 +14,14 @@ from services.metrics import (
     monthly_summary,
     sales_expenses_by_day,
 )
+from services.cockpit import (
+    attention_signals,
+    build_period_comparison,
+    calculate_cash_position,
+    cash_net_for_period,
+    sales_by_channel,
+    sales_by_payment_method,
+)
 from services.work_sessions import calculate_work_session_metrics
 from services.tenancy import scope_query
 
@@ -41,12 +49,20 @@ def index():
         session_metrics = calculate_work_session_metrics(work_session)
         if work_session.status == "closed" and session_metrics.cash_difference:
             cash_differences.append({"session": work_session, "metrics": session_metrics})
+    metrics = calculate_metrics(start_dt, end_dt, organization_id, branch_id)
     return render_template(
         "dashboard.html",
         period=period,
         start_date=start_date,
         end_date=end_date,
-        metrics=calculate_metrics(start_dt, end_dt, organization_id, branch_id),
+        metrics=metrics,
+        # F3.0 cockpit foundation (data only; the Business Cockpit UI is F3.1)
+        comparison=build_period_comparison(period, start_date, end_date, organization_id, branch_id),
+        sales_by_channel=sales_by_channel(start_dt, end_dt, organization_id, branch_id),
+        sales_by_payment_method=sales_by_payment_method(start_dt, end_dt, organization_id, branch_id),
+        cash_position=calculate_cash_position(organization_id, branch_id),
+        cash_net_period=cash_net_for_period(metrics),
+        attention_signals=attention_signals(start_date, end_date, organization_id, branch_id),
         daily_chart=sales_expenses_by_day(start_date, end_date, organization_id, branch_id),
         category_chart=expenses_by_category(start_dt, end_dt, organization_id, branch_id),
         investment_chart=investments_by_category(start_dt, end_dt, organization_id, branch_id),

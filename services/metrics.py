@@ -97,6 +97,9 @@ def calculate_metrics(start_dt, end_dt, organization_id=None, branch_id=None):
     worked_seconds = sum(calculate_work_session_metrics(session).duration_seconds for session in sessions)
     worked_hours = round(worked_seconds / 3600, 1)
     opening_cash = sum(session.opening_cash for session in sessions)
+    # LEGACY: sums opening_cash of *every* session in the period plus the period's cash
+    # flow, so it is neither "cash now" nor a period flow. Kept unchanged for compatibility;
+    # the Business Cockpit uses services.cockpit.calculate_cash_position / cash_net_for_period.
     cash_balance = opening_cash + cash_sales - cash_operational_expenses
     total_flow = total_sales - operational_expenses - investments
 
@@ -111,6 +114,8 @@ def calculate_metrics(start_dt, end_dt, organization_id=None, branch_id=None):
         "operating_margin": operating_margin,
         "worked_hours": worked_hours,
         "worked_seconds": worked_seconds,
+        "cash_sales": cash_sales,
+        "cash_operational_expenses": cash_operational_expenses,
         "cash_balance": cash_balance,
         "estimated_cash": cash_balance,
         "total_flow": total_flow,
