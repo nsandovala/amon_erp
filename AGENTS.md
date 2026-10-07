@@ -53,3 +53,23 @@ reset / recreate database
 firebase delete
 prisma db push --force-reset
 migrate reset
+
+## AMON Design Gate
+
+For any UI/UX/frontend task:
+
+1. Read `.claude/skills/amon-design/SKILL.md`.
+2. AMON Design is the visual and product-design authority.
+3. Consult:
+   - `ui-ux-pro-max` for UX, layout, accessibility and chart patterns;
+   - `ui-styling` for frontend visual execution;
+   - `design-system` for consistency, tokens and reusable patterns;
+   - `brand` / `design` only when materially relevant.
+4. Before implementation, state:
+   - visual direction;
+   - interaction model;
+   - information hierarchy;
+   - patterns intentionally avoided;
+   - files expected to change.
+5. Preserve Snow/Space, responsive behavior, accessibility and reduced motion.
+6. Scope reduction, omission of approved UX, or unrelated redesign requires explicit human approval.
