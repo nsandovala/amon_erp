@@ -1,0 +1,215 @@
+version: 2
+
+framework:
+  name: AMON Visual Gate
+  purpose: >
+    Machine-readable visual and interaction acceptance contract
+    for AMON product agents.
+
+authority:
+  constitution: docs/design/AMON_DESIGN_CONSTITUTION.md
+  interaction_language: docs/design/AMON_INTERACTION_LANGUAGE.md
+  visual_acceptance: docs/design/AMON_VISUAL_ACCEPTANCE.md
+
+precedence:
+  - current_human_direction
+  - constitution
+  - interaction_language
+  - visual_acceptance
+  - ticket_requirements
+  - repo_skills
+  - generic_framework_conventions
+
+agent_authority:
+  may_modify_within_approved_scope: true
+  may_reduce_approved_scope: false
+  may_remove_requested_ux: false
+  may_redesign_unrelated_surfaces: false
+  may_self_approve_visual_design: false
+  may_declare_premium: false
+  may_issue_human_visual_pass: false
+
+human_gates:
+  visual_pass_required: true
+  interaction_pass_required_for_interactive_tickets: true
+  silence_counts_as_approval: false
+
+themes:
+  required:
+    - snow
+    - space
+
+viewports:
+  desktop:
+    width: 1440
+    height: 1000
+
+  tablet:
+    width: 834
+    height: 1112
+
+  mobile:
+    width: 390
+    height: 844
+
+states:
+  inspect_when_applicable:
+    - rest
+    - hover
+    - focus
+    - selected
+    - expanded
+    - loading
+    - empty
+    - error
+    - disabled
+
+interaction_contracts:
+
+  analytical_chart:
+    rest: required
+    hover_feedback: required
+    contextual_values: required
+    keyboard_equivalent: required_when_practical
+    persistent_selection: when_meaningful
+    drill_down: when_domain_supports_it
+    reduced_motion: required
+
+  doughnut:
+    rest: required
+    hover_feedback: required
+    segment_emphasis: required
+    non_active_de_emphasis: required
+    contextual_label_value_share: required
+    keyboard_equivalent: required_when_practical
+    reduced_motion: required
+
+  kpi:
+    rest: required
+    hover_context: when_useful
+    focus_context: when_useful
+    detail_disclosure: when_meaningful
+    decorative_clickability: forbidden
+
+  data_row:
+    hover_affordance: required_when_selectable
+    visible_focus: required_when_selectable
+    detail_disclosure: when_meaningful
+    permanent_secondary_actions: discouraged
+
+  drawer:
+    explicit_close: required
+    escape_closes: required
+    focus_enters: required
+    focus_restores: required
+    background_blocked: required_when_modal
+    mobile_adaptation: required
+    reduced_motion: required
+
+  smart_input:
+    states:
+      - idle
+      - ingesting
+      - understanding
+      - review
+      - correct
+      - confirm
+      - committed
+
+    human_confirmation_before_financial_truth: required
+    uncertainty_must_be_visible: required
+    silent_persistence: forbidden
+
+visual_rules:
+  generic_admin_template: forbidden
+  spreadsheet_feel: reject
+  powerpoint_feel: reject
+  static_explorable_data: reject_unless_justified
+
+  neon: forbidden
+  purple_blue_ai_gradient: forbidden
+  random_glassmorphism: forbidden
+  excessive_card_nesting: forbidden
+  excessive_border_hierarchy: forbidden
+  gratuitous_motion: forbidden
+
+  gold:
+    role: accent
+    dominant_surface_fill: forbidden
+
+motion:
+  typical_duration_ms:
+    min: 120
+    max: 220
+
+  decorative_looping: forbidden
+  respect_prefers_reduced_motion: required
+
+evidence:
+
+  screenshots:
+    rest: required
+    hover: required_when_applicable
+    focus: required_when_applicable
+    selected: required_when_applicable
+    expanded: required_when_applicable
+    empty: required_when_applicable
+    error: required_when_applicable
+
+  themes:
+    snow: required
+    space: required
+
+  responsive:
+    desktop: required
+    tablet: required
+    mobile: required
+
+  browser:
+    console_errors_allowed: 0
+
+  recommended_output:
+    directory: artifacts/visual-qa/<ticket>
+
+gates:
+
+  functional:
+    required: true
+    authority: automated_qa
+
+  data_safety:
+    required: true
+    authority: automated_qa_and_domain_rules
+
+  accessibility:
+    required: true
+    authority: automated_and_manual
+
+  responsive:
+    required: true
+    authority: visual_qa
+
+  interaction:
+    required: true
+    authority: visual_qa_and_human
+
+  visual:
+    required: true
+    authority: human_only
+
+completion_language:
+  scope: visual_and_interaction_tickets
+
+  allowed_before_human_visual_pass:
+    - implementation complete
+    - automated QA passed
+    - ready for human visual acceptance
+    - visual evidence captured
+
+  forbidden_before_human_visual_pass:
+    - premium achieved
+    - visually approved
+    - design approved
+    - final visual pass
+    - visual work done
+    - design complete
